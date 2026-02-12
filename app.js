@@ -201,7 +201,7 @@ function displayTasks(tasks) {
                     </div>
                 </div>
                 <div class="task-actions">
-                    <button class="status-btn ${statusClass}" onclick="changeTaskStatus('${task.id}', ${task.status})">
+                    <button class="status-btn ${statusClass}" onclick="changeTaskStatus('${task.id}', ${task.status}, '${task.repeatType}')">
                         ${statusLabel}
                     </button>
                     <button class="delete-btn" onclick="deleteTask('${task.id}')">
@@ -216,7 +216,7 @@ function displayTasks(tasks) {
 }
 
 // Change task status (0 -> 1 -> 2 -> 0)
-window.changeTaskStatus = async function(taskId, currentStatus) {
+window.changeTaskStatus = async function(taskId, currentStatus, repeatType) {
     if (!currentUser) return;
     
     // Cycle through statuses: 0 -> 1 -> 2 -> 0
@@ -227,10 +227,7 @@ window.changeTaskStatus = async function(taskId, currentStatus) {
         const updateData = { status: nextStatus };
         
         // If changing to done (status 2) and it's a daily task, set lastReset
-        if (nextStatus === 2) {
-            const tasksRef = collection(db, `users/${currentUser.uid}/tasks`);
-            const taskDoc = doc(tasksRef, taskId);
-            // We'll update lastReset when it becomes done
+        if (nextStatus === 2 && repeatType === 'daily') {
             updateData.lastReset = getTodayString();
         }
         
