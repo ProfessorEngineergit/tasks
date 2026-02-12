@@ -1,7 +1,7 @@
 // Firebase v9 SDK imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
 import { getAuth, GithubAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, setDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -96,7 +96,7 @@ addTaskBtn.addEventListener('click', async () => {
     
     try {
         // Use setDoc with auto-generated ID instead of addDoc for better control
-        const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         const taskRef = doc(db, `users/${currentUser.uid}/tasks/${taskId}`);
         
         const taskData = {
@@ -316,23 +316,16 @@ window.updateProgress = async function(taskId, boxNumber) {
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
         
-        // Get current task data first to check progress
-        const tasks = [];
-        const tasksRef = collection(db, `users/${currentUser.uid}/tasks`);
-        const q = query(tasksRef);
-        const snapshot = await new Promise((resolve) => {
-            const unsubscribe = onSnapshot(q, (snap) => {
-                unsubscribe();
-                resolve(snap);
-            });
-        });
+        // Get current task data directly
+        const taskSnap = await getDoc(taskRef);
         
-        let currentProgress = 0;
-        snapshot.forEach((doc) => {
-            if (doc.id === taskId) {
-                currentProgress = doc.data().progress || 0;
-            }
-        });
+        if (!taskSnap.exists()) {
+            console.error('Task not found');
+            return;
+        }
+        
+        const taskData = taskSnap.data();
+        const currentProgress = taskData.progress || 0;
         
         // Toggle logic: if clicking on an already filled box, unfill it and all after
         // If clicking on an empty box, fill it
@@ -352,8 +345,7 @@ window.updateProgress = async function(taskId, boxNumber) {
         
         // If completing task (progress = 3) and it's recurring, set up next due date
         if (newProgress === 3) {
-            const taskData = snapshot.docs.find(doc => doc.id === taskId)?.data();
-            if (taskData && taskData.repeatType !== 'none' && taskData.dueDate) {
+            if (taskData.repeatType !== 'none' && taskData.dueDate) {
                 const nextDue = calculateNextDueDate(taskData.dueDate, taskData.repeatType);
                 updateData.nextDueDate = nextDue;
             }
