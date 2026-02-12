@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do App</title>
+    <title>Tasks - Duolingo Style</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,50 +15,61 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             padding: 20px;
+            color: #ffffff;
         }
         
         .container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 800px;
+            background: #000000;
+            max-width: 600px;
             width: 100%;
-            padding: 40px;
+            padding: 40px 20px;
+            margin-top: 40px;
         }
         
         #login-container {
             text-align: center;
+            padding: 60px 40px;
         }
         
         #login-container h1 {
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 2.5em;
+            color: #00ff88;
+            margin-bottom: 40px;
+            font-size: 3em;
+            font-weight: 800;
+            letter-spacing: -1px;
         }
         
         #login-btn {
-            background: #333;
-            color: white;
+            background: #00ff88;
+            color: #000000;
             border: none;
-            padding: 15px 40px;
+            padding: 18px 50px;
             font-size: 18px;
-            border-radius: 8px;
+            font-weight: 700;
+            border-radius: 16px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(0, 255, 136, 0.3);
         }
         
         #login-btn:hover {
-            background: #555;
+            background: #00dd77;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(0, 255, 136, 0.4);
+        }
+        
+        #login-btn:active {
+            transform: translateY(0);
         }
         
         #app {
@@ -70,198 +84,306 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid #1a1a1a;
         }
         
         .welcome {
             font-size: 24px;
-            color: #333;
+            font-weight: 700;
+            color: #00ff88;
         }
         
         #logout-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            background: transparent;
+            color: #ff4444;
+            border: 2px solid #ff4444;
+            padding: 10px 24px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
         }
         
         #logout-btn:hover {
-            background: #c82333;
+            background: #ff4444;
+            color: #000000;
         }
         
         .task-form {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 30px;
+            background: #0a0a0a;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            border: 2px solid #1a1a1a;
         }
         
         .task-form h2 {
-            margin-bottom: 20px;
-            color: #333;
+            margin-bottom: 24px;
+            color: #00ff88;
+            font-weight: 800;
+            font-size: 22px;
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
+            margin-bottom: 8px;
+            color: #00ff88;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
+            padding: 14px 16px;
+            border: 2px solid #1a1a1a;
+            background: #000000;
+            color: #ffffff;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: 'Exo 2', sans-serif;
+            transition: all 0.3s ease;
         }
         
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00ff88;
+            box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.1);
         }
         
         #add-task-btn {
-            background: #667eea;
-            color: white;
+            background: #00ff88;
+            color: #000000;
             border: none;
-            padding: 12px 30px;
-            border-radius: 6px;
+            padding: 16px 32px;
+            border-radius: 16px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
+            font-weight: 700;
             width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 255, 136, 0.3);
         }
         
         #add-task-btn:hover {
-            background: #5568d3;
+            background: #00dd77;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(0, 255, 136, 0.4);
+        }
+        
+        #add-task-btn:active {
+            transform: translateY(0);
         }
         
         .tasks-list h2 {
-            margin-bottom: 20px;
-            color: #333;
+            margin-bottom: 24px;
+            color: #00ff88;
+            font-weight: 800;
+            font-size: 22px;
         }
         
-        .task-item {
-            background: #fff;
-            border: 2px solid #eee;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
+        .task-card {
+            background: #0a0a0a;
+            border: 2px solid #1a1a1a;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .task-card:hover {
+            transform: translateY(-4px);
+            border-color: #00ff88;
+            box-shadow: 0 12px 32px rgba(0, 255, 136, 0.2);
+        }
+        
+        .task-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .task-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .task-item.status-0 {
-            border-left: 5px solid #6c757d;
-        }
-        
-        .task-item.status-1 {
-            border-left: 5px solid #ffc107;
-        }
-        
-        .task-item.status-2 {
-            border-left: 5px solid #28a745;
-        }
-        
-        .task-info {
-            flex: 1;
+            align-items: flex-start;
+            margin-bottom: 16px;
         }
         
         .task-title {
-            font-size: 18px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            flex: 1;
+            line-height: 1.3;
+        }
+        
+        .task-due-badge {
+            background: #1a1a1a;
+            color: #00ff88;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
+            white-space: nowrap;
+            margin-left: 12px;
         }
         
-        .task-details {
-            font-size: 14px;
-            color: #666;
+        .task-due-badge.overdue {
+            background: #ff4444;
+            color: #000000;
         }
         
-        .task-actions {
+        .task-due-badge.today {
+            background: #00ff88;
+            color: #000000;
+        }
+        
+        .progress-container {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            margin-bottom: 16px;
         }
         
-        .status-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
+        .progress-box {
+            flex: 1;
+            height: 60px;
+            background: #1a1a1a;
+            border: 2px solid #2a2a2a;
+            border-radius: 12px;
             cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            position: relative;
+        }
+        
+        .progress-box:hover {
+            border-color: #00ff88;
+            transform: scale(1.05);
+        }
+        
+        .progress-box.filled {
+            background: #00ff88;
+            border-color: #00ff88;
+            color: #000000;
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.4);
+        }
+        
+        .progress-box.filled::after {
+            content: '✓';
+            font-size: 28px;
+            font-weight: 800;
+        }
+        
+        .progress-text {
+            margin-bottom: 16px;
+            color: #888888;
             font-size: 14px;
-            font-weight: 500;
-            transition: opacity 0.2s;
+            font-weight: 600;
+            text-align: center;
         }
         
-        .status-btn:hover {
-            opacity: 0.8;
+        .progress-text.complete {
+            color: #00ff88;
         }
         
-        .status-btn.todo {
-            background: #6c757d;
-            color: white;
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #1a1a1a;
         }
         
-        .status-btn.in-progress {
-            background: #ffc107;
-            color: #333;
-        }
-        
-        .status-btn.done {
-            background: #28a745;
-            color: white;
+        .task-repeat-badge {
+            background: #1a1a1a;
+            color: #888888;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
         }
         
         .delete-btn {
-            background: #dc3545;
-            color: white;
-            padding: 8px 16px;
+            background: #ff4444;
+            color: #000000;
+            padding: 10px 20px;
             border: none;
-            border-radius: 6px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .delete-btn.visible {
+            opacity: 1;
+            pointer-events: all;
         }
         
         .delete-btn:hover {
-            background: #c82333;
+            background: #ee3333;
+            transform: scale(1.05);
         }
         
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #999;
+            padding: 80px 20px;
+            color: #555555;
         }
         
         .empty-state svg {
-            width: 100px;
-            height: 100px;
-            margin-bottom: 20px;
-            opacity: 0.3;
+            width: 120px;
+            height: 120px;
+            margin-bottom: 24px;
+            opacity: 0.2;
+        }
+        
+        .empty-state p {
+            font-size: 18px;
+            font-weight: 600;
         }
         
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #666;
+            padding: 60px;
+            color: #00ff88;
+            font-weight: 600;
+        }
+
+        /* Animations */
+        @keyframes pop {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .progress-box.just-filled {
+            animation: pop 0.4s ease;
+        }
+
+        /* Color input styling for date picker */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
         }
     </style>
 </head>
@@ -269,12 +391,12 @@
     <div class="container">
         <!-- Login Container -->
         <div id="login-container">
-            <h1>📋 To-Do App</h1>
+            <h1>✓ Tasks</h1>
             <button id="login-btn">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
                 </svg>
-                Login mit GitHub
+                Mit GitHub anmelden
             </button>
         </div>
 
@@ -282,14 +404,14 @@
         <div id="app">
             <div class="header">
                 <div class="welcome">
-                    Willkommen, <span id="user-name">User</span>! 👋
+                    Hallo, <span id="user-name">User</span>! 👋
                 </div>
                 <button id="logout-btn">Logout</button>
             </div>
 
             <!-- Task Form -->
             <div class="task-form">
-                <h2>Neue Aufgabe erstellen</h2>
+                <h2>Neue Aufgabe</h2>
                 <div class="form-group">
                     <label for="task-title">Titel</label>
                     <input type="text" id="task-title" placeholder="Was möchtest du erledigen?">
@@ -303,6 +425,10 @@
                     <select id="task-repeat">
                         <option value="none">Keine</option>
                         <option value="daily">Täglich</option>
+                        <option value="every2days">Alle 2 Tage</option>
+                        <option value="every3days">Alle 3 Tage</option>
+                        <option value="weekly">Wöchentlich</option>
+                        <option value="monthly">Monatlich</option>
                     </select>
                 </div>
                 <button id="add-task-btn">Aufgabe hinzufügen</button>

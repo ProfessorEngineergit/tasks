@@ -1,9 +1,9 @@
 // Firebase v9 SDK imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
 import { getAuth, GithubAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 
-// Firebase Configuration (Add your Firebase config here)
+// Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyCgi8dyIlFlb_CVKOexWF5Hj28PviYqKqg",
     authDomain: "tasks-4182a.firebaseapp.com",
@@ -95,15 +95,21 @@ addTaskBtn.addEventListener('click', async () => {
     }
     
     try {
-        const tasksRef = collection(db, `users/${currentUser.uid}/tasks`);
-        await addDoc(tasksRef, {
+        // Use setDoc with auto-generated ID instead of addDoc for better control
+        const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        const taskRef = doc(db, `users/${currentUser.uid}/tasks/${taskId}`);
+        
+        const taskData = {
             title: title,
             dueDate: dueDate || null,
-            status: 0, // 0 = Todo, 1 = In Progress, 2 = Done
+            progress: 0, // 0, 1, 2, or 3 (0 = not started, 3 = complete)
             repeatType: repeatType,
-            lastReset: repeatType === 'daily' ? getTodayString() : null,
-            createdAt: new Date().toISOString()
-        });
+            nextDueDate: dueDate || null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        await setDoc(taskRef, taskData);
         
         // Clear form
         document.getElementById('task-title').value = '';
@@ -113,6 +119,8 @@ addTaskBtn.addEventListener('click', async () => {
         console.log('Task added successfully');
     } catch (error) {
         console.error('Error adding task:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
         alert('Fehler beim Hinzufügen der Aufgabe: ' + error.message);
     }
 });
@@ -137,36 +145,72 @@ function loadTasks(uid) {
             });
         });
         
-        // Check and reset recurring tasks before displaying
+        // Check and reschedule recurring tasks before displaying
         checkRecurringTasks(tasks, uid);
         
         // Display tasks
         displayTasks(tasks);
     }, (error) => {
         console.error('Error loading tasks:', error);
-        tasksContainer.innerHTML = '<div class="error">Fehler beim Laden der Aufgaben</div>';
+        tasksContainer.innerHTML = '<div class="error" style="color: #ff4444; text-align: center; padding: 40px;">Fehler beim Laden der Aufgaben</div>';
     });
 }
 
-// Check and reset recurring tasks
+// Check and reschedule recurring tasks
 async function checkRecurringTasks(tasks, uid) {
     const today = getTodayString();
     
     for (const task of tasks) {
-        // Check if task is daily, done, and needs reset
-        if (task.repeatType === 'daily' && task.status === 2 && task.lastReset !== today) {
-            try {
-                const taskRef = doc(db, `users/${uid}/tasks`, task.id);
-                await updateDoc(taskRef, {
-                    status: 0,
-                    lastReset: today
-                });
-                console.log(`Reset daily task: ${task.title}`);
-            } catch (error) {
-                console.error('Error resetting task:', error);
+        // Only check tasks that have repeat settings and are completed
+        if (task.repeatType !== 'none' && task.progress === 3 && task.nextDueDate) {
+            const nextDue = new Date(task.nextDueDate);
+            const todayDate = new Date(today);
+            
+            // If the next due date has passed, reschedule the task
+            if (todayDate >= nextDue) {
+                try {
+                    const newDueDate = calculateNextDueDate(task.nextDueDate, task.repeatType);
+                    const taskRef = doc(db, `users/${uid}/tasks`, task.id);
+                    await updateDoc(taskRef, {
+                        progress: 0,
+                        nextDueDate: newDueDate,
+                        dueDate: newDueDate,
+                        updatedAt: new Date().toISOString()
+                    });
+                    console.log(`Rescheduled recurring task: ${task.title} to ${newDueDate}`);
+                } catch (error) {
+                    console.error('Error rescheduling task:', error);
+                }
             }
         }
     }
+}
+
+// Calculate next due date based on repeat type
+function calculateNextDueDate(currentDate, repeatType) {
+    const date = new Date(currentDate);
+    
+    switch(repeatType) {
+        case 'daily':
+            date.setDate(date.getDate() + 1);
+            break;
+        case 'every2days':
+            date.setDate(date.getDate() + 2);
+            break;
+        case 'every3days':
+            date.setDate(date.getDate() + 3);
+            break;
+        case 'weekly':
+            date.setDate(date.getDate() + 7);
+            break;
+        case 'monthly':
+            date.setMonth(date.getMonth() + 1);
+            break;
+        default:
+            return currentDate;
+    }
+    
+    return date.toISOString().split('T')[0]; // Return YYYY-MM-DD
 }
 
 // Display tasks in the UI
@@ -177,35 +221,46 @@ function displayTasks(tasks) {
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
                 </svg>
-                <p>Keine Aufgaben vorhanden. Erstelle deine erste Aufgabe!</p>
+                <p>Noch keine Aufgaben. Erstelle deine erste!</p>
             </div>
         `;
         return;
     }
     
     const tasksHTML = tasks.map(task => {
-        const statusLabels = ['Todo', 'In Progress', 'Done'];
-        const statusClasses = ['todo', 'in-progress', 'done'];
-        const statusLabel = statusLabels[task.status];
-        const statusClass = statusClasses[task.status];
-        
-        const dueDateText = task.dueDate ? `Fällig: ${formatDate(task.dueDate)}` : 'Kein Datum';
-        const repeatText = task.repeatType === 'daily' ? '🔄 Täglich' : '';
+        const progress = task.progress || 0;
+        const dueInfo = getDueDateInfo(task.dueDate);
+        const repeatLabel = getRepeatLabel(task.repeatType);
+        const progressPercent = Math.round((progress / 3) * 100);
         
         return `
-            <div class="task-item status-${task.status}">
-                <div class="task-info">
+            <div class="task-card">
+                <div class="task-header">
                     <div class="task-title">${escapeHtml(task.title)}</div>
-                    <div class="task-details">
-                        ${dueDateText} ${repeatText ? '• ' + repeatText : ''}
+                    ${dueInfo.badge ? `<div class="task-due-badge ${dueInfo.class}">${dueInfo.badge}</div>` : ''}
+                </div>
+                
+                <div class="progress-text ${progress === 3 ? 'complete' : ''}">
+                    ${progress === 3 ? '🎉 Abgeschlossen!' : `${progressPercent}% erledigt`}
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-box ${progress >= 1 ? 'filled' : ''}" 
+                         onclick="updateProgress('${task.id}', 1)">
+                    </div>
+                    <div class="progress-box ${progress >= 2 ? 'filled' : ''}" 
+                         onclick="updateProgress('${task.id}', 2)">
+                    </div>
+                    <div class="progress-box ${progress >= 3 ? 'filled' : ''}" 
+                         onclick="updateProgress('${task.id}', 3)">
                     </div>
                 </div>
-                <div class="task-actions">
-                    <button class="status-btn ${statusClass}" onclick="changeTaskStatus('${task.id}', ${task.status}, '${task.repeatType}')">
-                        ${statusLabel}
-                    </button>
-                    <button class="delete-btn" onclick="deleteTask('${task.id}')">
-                        🗑️
+                
+                <div class="task-footer">
+                    ${repeatLabel ? `<div class="task-repeat-badge">🔄 ${repeatLabel}</div>` : '<div></div>'}
+                    <button class="delete-btn ${progress === 3 ? 'visible' : ''}" 
+                            onclick="deleteTask('${task.id}')">
+                        Löschen
                     </button>
                 </div>
             </div>
@@ -215,27 +270,104 @@ function displayTasks(tasks) {
     tasksContainer.innerHTML = tasksHTML;
 }
 
-// Change task status (0 -> 1 -> 2 -> 0)
-window.changeTaskStatus = async function(taskId, currentStatus, repeatType) {
-    if (!currentUser) return;
+// Get due date info with styling
+function getDueDateInfo(dueDate) {
+    if (!dueDate) return { badge: null, class: '' };
     
-    // Cycle through statuses: 0 -> 1 -> 2 -> 0
-    const nextStatus = (currentStatus + 1) % 3;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        return { badge: `${Math.abs(diffDays)}d überfällig`, class: 'overdue' };
+    } else if (diffDays === 0) {
+        return { badge: 'Heute fällig', class: 'today' };
+    } else if (diffDays === 1) {
+        return { badge: 'Morgen fällig', class: '' };
+    } else if (diffDays <= 7) {
+        return { badge: `In ${diffDays} Tagen`, class: '' };
+    } else {
+        return { badge: `Fällig: ${formatDate(dueDate)}`, class: '' };
+    }
+}
+
+// Get repeat label
+function getRepeatLabel(repeatType) {
+    const labels = {
+        'none': '',
+        'daily': 'Täglich',
+        'every2days': 'Alle 2 Tage',
+        'every3days': 'Alle 3 Tage',
+        'weekly': 'Wöchentlich',
+        'monthly': 'Monatlich'
+    };
+    return labels[repeatType] || '';
+}
+
+// Update task progress (clicking on boxes)
+window.updateProgress = async function(taskId, boxNumber) {
+    if (!currentUser) return;
     
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
-        const updateData = { status: nextStatus };
         
-        // If changing to done (status 2) and it's a daily task, set lastReset
-        if (nextStatus === 2 && repeatType === 'daily') {
-            updateData.lastReset = getTodayString();
+        // Get current task data directly
+        const taskSnap = await getDoc(taskRef);
+        
+        if (!taskSnap.exists()) {
+            console.error('Task not found');
+            return;
+        }
+        
+        const taskData = taskSnap.data();
+        const currentProgress = taskData.progress || 0;
+        
+        // Toggle logic: if clicking on an already filled box, unfill it and all after
+        // If clicking on an empty box, fill it
+        let newProgress;
+        if (currentProgress >= boxNumber) {
+            // Clicking on a filled box - unfill it and all after
+            newProgress = boxNumber - 1;
+        } else {
+            // Clicking on an empty box - fill up to this box
+            newProgress = boxNumber;
+        }
+        
+        const updateData = {
+            progress: newProgress,
+            updatedAt: new Date().toISOString()
+        };
+        
+        // If completing task (progress = 3) and it's recurring, set up next due date
+        if (newProgress === 3) {
+            if (taskData.repeatType !== 'none' && taskData.dueDate) {
+                const nextDue = calculateNextDueDate(taskData.dueDate, taskData.repeatType);
+                updateData.nextDueDate = nextDue;
+            }
         }
         
         await updateDoc(taskRef, updateData);
-        console.log('Task status updated');
+        console.log('Task progress updated');
+        
+        // Add animation class
+        setTimeout(() => {
+            const boxes = document.querySelectorAll(`[onclick*="${taskId}"]`);
+            boxes.forEach((box, index) => {
+                if (index + 1 === boxNumber) {
+                    box.classList.add('just-filled');
+                    setTimeout(() => box.classList.remove('just-filled'), 400);
+                }
+            });
+        }, 50);
+        
     } catch (error) {
-        console.error('Error updating task status:', error);
-        alert('Fehler beim Aktualisieren des Status');
+        console.error('Error updating task progress:', error);
+        alert('Fehler beim Aktualisieren des Fortschritts');
     }
 };
 
