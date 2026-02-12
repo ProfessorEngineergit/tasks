@@ -5,12 +5,12 @@ import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc
 
 // Firebase Configuration (Add your Firebase config here)
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyCgi8dyIlFlb_CVKOexWF5Hj28PviYqKqg",
+    authDomain: "tasks-4182a.firebaseapp.com",
+    projectId: "tasks-4182a",
+    storageBucket: "tasks-4182a.firebasestorage.app",
+    messagingSenderId: "693923101612",
+    appId: "1:693923101612:web:c63d4c194056746b74d809"
 };
 
 // Initialize Firebase
