@@ -240,10 +240,11 @@ function displayTasks(tasks) {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayStr = getTodayString();
     const oneMonthFromNow = new Date(today);
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
     
-    let lastDueDate = null;
+    let addedTodaySeparator = false;
     let addedLongTermSeparator = false;
     
     const tasksHTML = tasks.map((task, index) => {
@@ -256,20 +257,24 @@ function displayTasks(tasks) {
         let separator = '';
         const currentDueDate = task.dueDate || null;
         
+        // Check if this task is due today
+        const isDueToday = currentDueDate === todayStr;
+        
         // Check if this is a long-term task (more than 1 month away)
         const isLongTerm = currentDueDate && new Date(currentDueDate) > oneMonthFromNow;
         
-        // Add long-term separator before first long-term task
+        // Add long-term separator before first long-term task (only once)
         if (isLongTerm && !addedLongTermSeparator) {
             separator = '<div class="date-separator long-term"><span>Langfristige Aufgaben</span></div>';
             addedLongTermSeparator = true;
+            // If we're adding long-term separator, also mark today separator as added
+            addedTodaySeparator = true;
         }
-        // Add regular separator if due date changes
-        else if (!isLongTerm && index > 0 && lastDueDate !== currentDueDate && lastDueDate) {
+        // Add unlabeled separator after the last task due today (if no long-term separator was added)
+        else if (!isDueToday && !addedTodaySeparator && index > 0) {
             separator = '<div class="date-separator"></div>';
+            addedTodaySeparator = true;
         }
-        
-        lastDueDate = currentDueDate;
         
         return `
             ${separator}
