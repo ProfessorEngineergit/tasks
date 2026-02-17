@@ -246,6 +246,7 @@ function displayTasks(tasks) {
     
     let addedTodaySeparator = false;
     let addedLongTermSeparator = false;
+    let hadTodayTask = false;
     
     const tasksHTML = tasks.map((task, index) => {
         const progress = task.progress || 0;
@@ -260,6 +261,11 @@ function displayTasks(tasks) {
         // Check if this task is due today
         const isDueToday = currentDueDate === todayStr;
         
+        // Track if we've seen any tasks due today
+        if (isDueToday) {
+            hadTodayTask = true;
+        }
+        
         // Check if this is a long-term task (more than 1 month away)
         const isLongTerm = currentDueDate && new Date(currentDueDate) > oneMonthFromNow;
         
@@ -271,7 +277,7 @@ function displayTasks(tasks) {
             addedTodaySeparator = true;
         }
         // Add unlabeled separator after the last task due today (if no long-term separator was added)
-        else if (!isDueToday && !addedTodaySeparator && index > 0) {
+        else if (!isDueToday && !addedTodaySeparator && hadTodayTask) {
             separator = '<div class="date-separator"></div>';
             addedTodaySeparator = true;
         }
