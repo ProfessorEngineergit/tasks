@@ -273,7 +273,10 @@ function displayTasks(tasks) {
         if (isLongTerm && !addedLongTermSeparator) {
             separator = '<div class="date-separator long-term"><span>Langfristige Aufgaben</span></div>';
             addedLongTermSeparator = true;
-            // If we're adding long-term separator, also mark today separator as added
+            // Also mark today separator as added because:
+            // 1. Long-term separator implicitly separates today's tasks from long-term tasks
+            // 2. We don't want both separators appearing (one unlabeled, then a labeled one)
+            // 3. This handles the case where tasks today are followed directly by long-term tasks
             addedTodaySeparator = true;
         }
         // Add unlabeled separator after the last task due today (if no long-term separator was added)
