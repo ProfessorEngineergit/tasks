@@ -240,11 +240,13 @@ function displayTasks(tasks) {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayStr = getTodayString();
     const oneMonthFromNow = new Date(today);
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
     
-    let lastDueDate = null;
+    let addedTodaySeparator = false;
     let addedLongTermSeparator = false;
+    let hadTodayTask = false;
     
     const tasksHTML = tasks.map((task, index) => {
         const progress = task.progress || 0;
@@ -256,20 +258,32 @@ function displayTasks(tasks) {
         let separator = '';
         const currentDueDate = task.dueDate || null;
         
+        // Check if this task is due today
+        const isDueToday = currentDueDate === todayStr;
+        
+        // Track if we've seen any tasks due today
+        if (isDueToday) {
+            hadTodayTask = true;
+        }
+        
         // Check if this is a long-term task (more than 1 month away)
         const isLongTerm = currentDueDate && new Date(currentDueDate) > oneMonthFromNow;
         
-        // Add long-term separator before first long-term task
+        // Add long-term separator before first long-term task (only once)
         if (isLongTerm && !addedLongTermSeparator) {
             separator = '<div class="date-separator long-term"><span>Langfristige Aufgaben</span></div>';
             addedLongTermSeparator = true;
+            // Also mark today separator as added because:
+            // 1. Long-term separator implicitly separates today's tasks from long-term tasks
+            // 2. We don't want both separators appearing (one unlabeled, then a labeled one)
+            // 3. This handles the case where tasks today are followed directly by long-term tasks
+            addedTodaySeparator = true;
         }
-        // Add regular separator if due date changes
-        else if (!isLongTerm && index > 0 && lastDueDate !== currentDueDate && lastDueDate) {
+        // Add unlabeled separator after the last task due today (if no long-term separator was added)
+        else if (!isDueToday && !addedTodaySeparator && hadTodayTask) {
             separator = '<div class="date-separator"></div>';
+            addedTodaySeparator = true;
         }
-        
-        lastDueDate = currentDueDate;
         
         return `
             ${separator}
