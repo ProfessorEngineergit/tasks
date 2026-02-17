@@ -148,6 +148,17 @@ function loadTasks(uid) {
         // Check and reschedule recurring tasks before displaying
         checkRecurringTasks(tasks, uid);
         
+        // Sort tasks by due date (earliest first), tasks without due date go to end
+        tasks.sort((a, b) => {
+            // Tasks without due date go to the end
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            
+            // Compare due dates
+            return new Date(a.dueDate) - new Date(b.dueDate);
+        });
+        
         // Display tasks
         displayTasks(tasks);
     }, (error) => {
@@ -227,13 +238,41 @@ function displayTasks(tasks) {
         return;
     }
     
-    const tasksHTML = tasks.map(task => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    
+    let lastDueDate = null;
+    let addedLongTermSeparator = false;
+    
+    const tasksHTML = tasks.map((task, index) => {
         const progress = task.progress || 0;
         const dueInfo = getDueDateInfo(task.dueDate);
         const repeatLabel = getRepeatLabel(task.repeatType);
         const progressPercent = Math.round((progress / 3) * 100);
         
+        // Check if we need to add a separator
+        let separator = '';
+        const currentDueDate = task.dueDate || null;
+        
+        // Check if this is a long-term task (more than 1 month away)
+        const isLongTerm = currentDueDate && new Date(currentDueDate) > oneMonthFromNow;
+        
+        // Add long-term separator before first long-term task
+        if (isLongTerm && !addedLongTermSeparator) {
+            separator = '<div class="date-separator long-term"><span>Langfristige Aufgaben</span></div>';
+            addedLongTermSeparator = true;
+        }
+        // Add regular separator if due date changes
+        else if (!isLongTerm && index > 0 && lastDueDate !== currentDueDate && lastDueDate) {
+            separator = '<div class="date-separator"></div>';
+        }
+        
+        lastDueDate = currentDueDate;
+        
         return `
+            ${separator}
             <div class="task-card">
                 <div class="task-header">
                     <div class="task-title">${escapeHtml(task.title)}</div>
@@ -257,7 +296,12 @@ function displayTasks(tasks) {
                 </div>
                 
                 <div class="task-footer">
-                    ${repeatLabel ? `<div class="task-repeat-badge">🔄 ${repeatLabel}</div>` : '<div></div>'}
+                    <div class="task-footer-left">
+                        ${repeatLabel ? `<div class="task-repeat-badge">🔄 ${repeatLabel}</div>` : ''}
+                        <button class="postpone-btn" onclick="postponeTask('${task.id}')">
+                            ⏭️ +1 Tag
+                        </button>
+                    </div>
                     <button class="delete-btn ${progress === 3 ? 'visible' : ''}" 
                             onclick="deleteTask('${task.id}')">
                         Löschen
@@ -368,6 +412,48 @@ window.updateProgress = async function(taskId, boxNumber) {
     } catch (error) {
         console.error('Error updating task progress:', error);
         alert('Fehler beim Aktualisieren des Fortschritts');
+    }
+};
+
+// Postpone task to next day
+window.postponeTask = async function(taskId) {
+    if (!currentUser) return;
+    
+    try {
+        const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
+        const taskSnap = await getDoc(taskRef);
+        
+        if (!taskSnap.exists()) {
+            console.error('Task not found');
+            return;
+        }
+        
+        const taskData = taskSnap.data();
+        const currentDueDate = taskData.dueDate;
+        
+        // Calculate next day
+        let newDueDate;
+        if (currentDueDate) {
+            const date = new Date(currentDueDate);
+            date.setDate(date.getDate() + 1);
+            newDueDate = date.toISOString().split('T')[0];
+        } else {
+            // If no due date, set to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            newDueDate = tomorrow.toISOString().split('T')[0];
+        }
+        
+        await updateDoc(taskRef, {
+            dueDate: newDueDate,
+            nextDueDate: newDueDate,
+            updatedAt: new Date().toISOString()
+        });
+        
+        console.log('Task postponed to next day:', newDueDate);
+    } catch (error) {
+        console.error('Error postponing task:', error);
+        alert('Fehler beim Verschieben der Aufgabe');
     }
 };
 
