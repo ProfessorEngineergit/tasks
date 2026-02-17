@@ -264,8 +264,8 @@ function displayTasks(tasks) {
             separator = '<div class="date-separator long-term"><span>Langfristige Aufgaben</span></div>';
             addedLongTermSeparator = true;
         }
-        // Add regular separator if due date changes and both dates exist and not long-term
-        else if (index > 0 && lastDueDate !== currentDueDate && lastDueDate && !isLongTerm) {
+        // Add regular separator if due date changes
+        else if (!isLongTerm && index > 0 && lastDueDate !== currentDueDate && lastDueDate) {
             separator = '<div class="date-separator"></div>';
         }
         
