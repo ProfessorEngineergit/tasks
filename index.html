@@ -304,6 +304,13 @@
             border-top: 1px solid #1a1a1a;
         }
         
+        .task-footer-left {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
         .task-repeat-badge {
             background: #1a1a1a;
             color: #888888;
@@ -311,6 +318,56 @@
             border-radius: 8px;
             font-size: 12px;
             font-weight: 600;
+        }
+        
+        .postpone-btn {
+            background: #00ff88;
+            color: #000000;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .postpone-btn:hover {
+            background: #00dd77;
+            transform: scale(1.05);
+        }
+        
+        .postpone-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .date-separator {
+            height: 2px;
+            background: linear-gradient(to right, transparent, #00ff88, transparent);
+            margin: 32px 0;
+            position: relative;
+        }
+        
+        .date-separator.long-term {
+            background: linear-gradient(to right, transparent, #00ff88, transparent);
+            height: 3px;
+            margin: 40px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .date-separator.long-term span {
+            background: #000000;
+            color: #00ff88;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 20px;
+            border: 2px solid #00ff88;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .delete-btn {
