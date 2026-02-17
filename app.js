@@ -255,7 +255,12 @@ function displayTasks(tasks) {
         const currentDueDate = task.dueDate || null;
         
         // Check if this task is after today
-        const isAfterToday = currentDueDate && new Date(currentDueDate) > today;
+        let isAfterToday = false;
+        if (currentDueDate) {
+            const taskDate = new Date(currentDueDate);
+            taskDate.setHours(0, 0, 0, 0);
+            isAfterToday = taskDate > today;
+        }
         
         // Add separator before the first task that is after today (only once)
         if (isAfterToday && !addedSeparator) {
