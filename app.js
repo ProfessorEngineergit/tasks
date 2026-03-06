@@ -38,6 +38,9 @@ let customOrder = null;
 // Cache of latest tasks array for re-sorting
 let currentTasksCache = [];
 // Drag state
+const LONG_PRESS_MS = 750;
+const SCROLL_ZONE_PX = 60;
+const SCROLL_MAX_SPEED = 12;
 let compactDrag = {
     active: false, card: null, section: null, sectionEl: null,
     ghost: null, placeholder: null, offsetX: 0, offsetY: 0,
@@ -348,6 +351,7 @@ function createTaskCard(task, sectionName) {
     card.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         if (e.target.closest('button, .progress-box')) return;
+        // Prevent text selection during hold
         e.preventDefault();
 
         const startX = e.clientX;
@@ -373,7 +377,7 @@ function createTaskCard(task, sectionName) {
         longPressTimer = setTimeout(() => {
             earlyCleanup();
             startCompactDrag(card, sectionName, startX, startY);
-        }, 750);
+        }, LONG_PRESS_MS);
 
         document.addEventListener('mousemove', onEarlyMove);
         document.addEventListener('mouseup', onEarlyUp);
@@ -483,14 +487,13 @@ function startCompactDrag(card, sectionName, mouseX, mouseY) {
     // Start continuous auto-scroll loop
     (function scrollTick() {
         if (!compactDrag.active) return;
-        const ZONE = 60, MAX_SPEED = 12;
         const vh = window.innerHeight;
         const y = compactDrag.lastMouseY;
-        if (y > vh - ZONE) {
-            window.scrollBy(0, ((y - (vh - ZONE)) / ZONE) * MAX_SPEED);
+        if (y > vh - SCROLL_ZONE_PX) {
+            window.scrollBy(0, ((y - (vh - SCROLL_ZONE_PX)) / SCROLL_ZONE_PX) * SCROLL_MAX_SPEED);
             updatePlaceholder(y);
-        } else if (y < ZONE) {
-            window.scrollBy(0, -(((ZONE - y) / ZONE) * MAX_SPEED));
+        } else if (y < SCROLL_ZONE_PX) {
+            window.scrollBy(0, -(((SCROLL_ZONE_PX - y) / SCROLL_ZONE_PX) * SCROLL_MAX_SPEED));
             updatePlaceholder(y);
         }
         compactDrag.scrollRAF = requestAnimationFrame(scrollTick);
