@@ -32,7 +32,42 @@ const tasksContainer = document.getElementById('tasks-container');
 let currentUser = null;
 let unsubscribeSnapshot = null;
 
-// Login with GitHub
+// ── Display state ──────────────────────────────────────────────────────────
+// null = chronological order; object = per-section custom order
+let customOrder = null;
+// Cache of latest tasks array for re-sorting
+let currentTasksCache = [];
+// Drag state
+let dragState = { element: null, section: null, placeholder: null };
+
+// ── iOS / iPadOS: block overscroll & zoom ─────────────────────────────────
+// Prevent pinch-zoom gesture events (Safari-specific)
+['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
+    document.addEventListener(evt, e => e.preventDefault(), { passive: false });
+});
+
+// Prevent rubber-band / overscroll bounce at scroll boundaries (older iOS)
+let _prevTouchY = 0;
+document.addEventListener('touchstart', e => {
+    _prevTouchY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+    // Never block while a card is being dragged
+    if (dragState.element) return;
+
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const deltaY = e.touches[0].clientY - _prevTouchY;
+
+    // Prevent only when already at top (pulling down) or at bottom (pulling up)
+    if ((scrollY <= 0 && deltaY > 0) || (scrollY >= maxScroll && deltaY < 0)) {
+        e.preventDefault();
+    }
+    _prevTouchY = e.touches[0].clientY;
+}, { passive: false });
+
+// ── Login ──────────────────────────────────────────────────────────────────
 loginBtn.addEventListener('click', async () => {
     try {
         const result = await signInWithPopup(auth, provider);
@@ -56,21 +91,15 @@ logoutBtn.addEventListener('click', async () => {
 // Auth state observer
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // User is logged in
         currentUser = user;
         loginContainer.style.display = 'none';
         appContainer.classList.add('active');
         userNameSpan.textContent = user.displayName || user.email || 'User';
-        
-        // Load user's tasks
         loadTasks(user.uid);
     } else {
-        // User is logged out
         currentUser = null;
         loginContainer.style.display = 'block';
         appContainer.classList.remove('active');
-        
-        // Unsubscribe from tasks snapshot
         if (unsubscribeSnapshot) {
             unsubscribeSnapshot();
             unsubscribeSnapshot = null;
@@ -78,106 +107,83 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Add new task
+// ── Add new task ───────────────────────────────────────────────────────────
 addTaskBtn.addEventListener('click', async () => {
     const title = document.getElementById('task-title').value.trim();
     const dueDate = document.getElementById('task-due').value;
     const repeatType = document.getElementById('task-repeat').value;
-    
+
     if (!title) {
         alert('Bitte gib einen Titel ein!');
         return;
     }
-    
     if (!currentUser) {
         alert('Du musst eingeloggt sein!');
         return;
     }
-    
+
     try {
-        // Use setDoc with auto-generated ID instead of addDoc for better control
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         const taskRef = doc(db, `users/${currentUser.uid}/tasks/${taskId}`);
-        
-        const taskData = {
-            title: title,
+
+        await setDoc(taskRef, {
+            title,
             dueDate: dueDate || null,
-            progress: 0, // 0, 1, 2, or 3 (0 = not started, 3 = complete)
-            repeatType: repeatType,
+            progress: 0,
+            repeatType,
             nextDueDate: dueDate || null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
-        };
-        
-        await setDoc(taskRef, taskData);
-        
-        // Clear form
+        });
+
         document.getElementById('task-title').value = '';
         document.getElementById('task-due').value = '';
         document.getElementById('task-repeat').value = 'none';
-        
+
         console.log('Task added successfully');
     } catch (error) {
         console.error('Error adding task:', error);
-        console.error('Error code:', error.code);
-        console.error('Error message:', error.message);
         alert('Fehler beim Hinzufügen der Aufgabe: ' + error.message);
     }
 });
 
-// Load tasks with real-time updates
+// ── Load tasks ─────────────────────────────────────────────────────────────
 function loadTasks(uid) {
     const tasksRef = collection(db, `users/${uid}/tasks`);
     const q = query(tasksRef, orderBy('createdAt', 'desc'));
-    
-    // Unsubscribe from previous snapshot if exists
-    if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-    }
-    
-    // Subscribe to real-time updates
+
+    if (unsubscribeSnapshot) unsubscribeSnapshot();
+
     unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
         const tasks = [];
-        snapshot.forEach((doc) => {
-            tasks.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        
-        // Check and reschedule recurring tasks before displaying
+        snapshot.forEach((d) => tasks.push({ id: d.id, ...d.data() }));
+
         checkRecurringTasks(tasks, uid);
-        
-        // Sort tasks by due date (earliest first), tasks without due date go to end
+
+        // Default chronological sort
         tasks.sort((a, b) => {
-            // Tasks without due date go to the end
             if (!a.dueDate && !b.dueDate) return 0;
             if (!a.dueDate) return 1;
             if (!b.dueDate) return -1;
-            
-            // Compare due dates
             return new Date(a.dueDate) - new Date(b.dueDate);
         });
-        
-        // Display tasks
+
         displayTasks(tasks);
     }, (error) => {
         console.error('Error loading tasks:', error);
-        tasksContainer.innerHTML = '<div class="error" style="color: #ff4444; text-align: center; padding: 40px;">Fehler beim Laden der Aufgaben</div>';
+        tasksContainer.innerHTML = '<div style="color:#ff4444;text-align:center;padding:40px;">Fehler beim Laden der Aufgaben</div>';
     });
 }
 
-// Check and reschedule recurring tasks
+// ── Recurring task rescheduling ────────────────────────────────────────────
 async function checkRecurringTasks(tasks, uid) {
     const today = getTodayString();
-    
+
     for (const task of tasks) {
-        // Only check tasks that have repeat settings and are completed
         if (task.repeatType !== 'none' && task.progress === 3 && task.nextDueDate) {
             const nextDue = new Date(task.nextDueDate);
             const todayDate = new Date(today);
-            
-            // If the next due date has passed, reschedule the task
+
             if (todayDate >= nextDue) {
                 try {
                     const newDueDate = calculateNextDueDate(task.nextDueDate, task.repeatType);
@@ -188,7 +194,6 @@ async function checkRecurringTasks(tasks, uid) {
                         dueDate: newDueDate,
                         updatedAt: new Date().toISOString()
                     });
-                    console.log(`Rescheduled recurring task: ${task.title} to ${newDueDate}`);
                 } catch (error) {
                     console.error('Error rescheduling task:', error);
                 }
@@ -197,35 +202,24 @@ async function checkRecurringTasks(tasks, uid) {
     }
 }
 
-// Calculate next due date based on repeat type
 function calculateNextDueDate(currentDate, repeatType) {
     const date = new Date(currentDate);
-    
-    switch(repeatType) {
-        case 'daily':
-            date.setDate(date.getDate() + 1);
-            break;
-        case 'every2days':
-            date.setDate(date.getDate() + 2);
-            break;
-        case 'every3days':
-            date.setDate(date.getDate() + 3);
-            break;
-        case 'weekly':
-            date.setDate(date.getDate() + 7);
-            break;
-        case 'monthly':
-            date.setMonth(date.getMonth() + 1);
-            break;
-        default:
-            return currentDate;
+    switch (repeatType) {
+        case 'daily':      date.setDate(date.getDate() + 1);   break;
+        case 'every2days': date.setDate(date.getDate() + 2);   break;
+        case 'every3days': date.setDate(date.getDate() + 3);   break;
+        case 'weekly':     date.setDate(date.getDate() + 7);   break;
+        case 'monthly':    date.setMonth(date.getMonth() + 1); break;
+        default:           return currentDate;
     }
-    
-    return date.toISOString().split('T')[0]; // Return YYYY-MM-DD
+    return date.toISOString().split('T')[0];
 }
 
-// Display tasks in the UI
+// ── Display tasks ──────────────────────────────────────────────────────────
 function displayTasks(tasks) {
+    currentTasksCache = tasks;
+    tasksContainer.innerHTML = '';
+
     if (tasks.length === 0) {
         tasksContainer.innerHTML = `
             <div class="empty-state">
@@ -237,231 +231,390 @@ function displayTasks(tasks) {
         `;
         return;
     }
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = getTodayString();
-    
-    let addedSeparator = false;
-    
-    const tasksHTML = tasks.map((task, index) => {
-        const progress = task.progress || 0;
-        const dueInfo = getDueDateInfo(task.dueDate);
-        const repeatLabel = getRepeatLabel(task.repeatType);
-        const progressPercent = Math.round((progress / 3) * 100);
-        
-        // Check if we need to add a separator
-        let separator = '';
-        const currentDueDate = task.dueDate || null;
-        
-        // Check if this task is after today
-        let isAfterToday = false;
-        if (currentDueDate) {
-            const taskDate = new Date(currentDueDate);
-            taskDate.setHours(0, 0, 0, 0);
-            isAfterToday = taskDate > today;
-        }
-        
-        // Add separator before the first task that is after today (only once)
-        if (isAfterToday && !addedSeparator) {
-            separator = '<div class="date-separator"></div>';
-            addedSeparator = true;
-        }
-        
-        return `
-            ${separator}
-            <div class="task-card">
-                <div class="task-header">
-                    <div class="task-title">${escapeHtml(task.title)}</div>
-                    ${dueInfo.badge ? `<div class="task-due-badge ${dueInfo.class}">${dueInfo.badge}</div>` : ''}
-                </div>
-                
-                <div class="progress-text ${progress === 3 ? 'complete' : ''}">
-                    ${progress === 3 ? '🎉 Abgeschlossen!' : `${progressPercent}% erledigt`}
-                </div>
-                
-                <div class="progress-container">
-                    <div class="progress-box ${progress >= 1 ? 'filled' : ''}" 
-                         onclick="updateProgress('${task.id}', 1)">
-                    </div>
-                    <div class="progress-box ${progress >= 2 ? 'filled' : ''}" 
-                         onclick="updateProgress('${task.id}', 2)">
-                    </div>
-                    <div class="progress-box ${progress >= 3 ? 'filled' : ''}" 
-                         onclick="updateProgress('${task.id}', 3)">
-                    </div>
-                </div>
-                
-                <div class="task-footer">
-                    <div class="task-footer-left">
-                        ${repeatLabel ? `<div class="task-repeat-badge">🔄 ${repeatLabel}</div>` : ''}
-                        <button class="postpone-btn" onclick="postponeTask('${task.id}')">
-                            ⏭️ +1 Tag
-                        </button>
-                    </div>
-                    <button class="delete-btn ${progress === 3 ? 'visible' : ''}" 
-                            onclick="deleteTask('${task.id}')">
-                        Löschen
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    tasksContainer.innerHTML = tasksHTML;
-}
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
 
-// Get due date info with styling
-function getDueDateInfo(dueDate) {
-    if (!dueDate) return { badge: null, class: '' };
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const due = new Date(dueDate);
-    due.setHours(0, 0, 0, 0);
-    
-    const diffTime = due - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-        return { badge: `${Math.abs(diffDays)}d überfällig`, class: 'overdue' };
-    } else if (diffDays === 0) {
-        return { badge: 'Heute fällig', class: 'today' };
-    } else if (diffDays === 1) {
-        return { badge: 'Morgen fällig', class: '' };
-    } else if (diffDays <= 7) {
-        return { badge: `In ${diffDays} Tagen`, class: '' };
-    } else {
-        return { badge: `Fällig: ${formatDate(dueDate)}`, class: '' };
-    }
-}
-
-// Get repeat label
-function getRepeatLabel(repeatType) {
-    const labels = {
-        'none': '',
-        'daily': 'Täglich',
-        'every2days': 'Alle 2 Tage',
-        'every3days': 'Alle 3 Tage',
-        'weekly': 'Wöchentlich',
-        'monthly': 'Monatlich'
-    };
-    return labels[repeatType] || '';
-}
-
-// Update task progress (clicking on boxes)
-window.updateProgress = async function(taskId, boxNumber) {
-    if (!currentUser) return;
-    
-    try {
-        const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
-        
-        // Get current task data directly
-        const taskSnap = await getDoc(taskRef);
-        
-        if (!taskSnap.exists()) {
-            console.error('Task not found');
-            return;
-        }
-        
-        const taskData = taskSnap.data();
-        const currentProgress = taskData.progress || 0;
-        
-        // Toggle logic: if clicking on an already filled box, unfill it and all after
-        // If clicking on an empty box, fill it
-        let newProgress;
-        if (currentProgress >= boxNumber) {
-            // Clicking on a filled box - unfill it and all after
-            newProgress = boxNumber - 1;
+    // ── Categorize into 4 buckets ──
+    const sections = { urgent: [], near: [], far: [], nodate: [] };
+    tasks.forEach(task => {
+        if (!task.dueDate) {
+            sections.nodate.push(task);
         } else {
-            // Clicking on an empty box - fill up to this box
-            newProgress = boxNumber;
-        }
-        
-        const updateData = {
-            progress: newProgress,
-            updatedAt: new Date().toISOString()
-        };
-        
-        // If completing task (progress = 3) and it's recurring, set up next due date
-        if (newProgress === 3) {
-            if (taskData.repeatType !== 'none' && taskData.dueDate) {
-                const nextDue = calculateNextDueDate(taskData.dueDate, taskData.repeatType);
-                updateData.nextDueDate = nextDue;
+            // Parse without timezone shift
+            const [y, m, d] = task.dueDate.split('-').map(Number);
+            const due = new Date(y, m - 1, d);
+            if (due <= today) {
+                sections.urgent.push(task);
+            } else if (due <= oneMonthFromNow) {
+                sections.near.push(task);
+            } else {
+                sections.far.push(task);
             }
         }
-        
-        await updateDoc(taskRef, updateData);
-        console.log('Task progress updated');
-        
-        // Add animation class
-        setTimeout(() => {
-            const boxes = document.querySelectorAll(`[onclick*="${taskId}"]`);
-            boxes.forEach((box, index) => {
-                if (index + 1 === boxNumber) {
-                    box.classList.add('just-filled');
-                    setTimeout(() => box.classList.remove('just-filled'), 400);
-                }
+    });
+
+    // ── Apply custom order within each bucket ──
+    if (customOrder) {
+        ['urgent', 'near', 'far', 'nodate'].forEach(sec => {
+            const order = customOrder[sec];
+            if (order && order.length) {
+                sections[sec].sort((a, b) => {
+                    const ai = order.indexOf(a.id);
+                    const bi = order.indexOf(b.id);
+                    return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+                });
+            }
+        });
+    }
+
+    // ── Re-sort button ──
+    if (customOrder !== null) {
+        const btn = document.createElement('button');
+        btn.className = 'resort-btn';
+        btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
+        btn.addEventListener('click', () => {
+            customOrder = null;
+            displayTasks(currentTasksCache);
+        });
+        tasksContainer.appendChild(btn);
+    }
+
+    // ── Build section elements ──
+    const urgentEl = sections.urgent.length ? createSectionEl('urgent', sections.urgent) : null;
+    const nearEl   = sections.near.length   ? createSectionEl('near',   sections.near)   : null;
+    const farEl    = sections.far.length    ? createSectionEl('far',    sections.far)    : null;
+    const nodateEl = sections.nodate.length ? createSectionEl('nodate', sections.nodate) : null;
+
+    const hasAfterUrgent = nearEl || farEl || nodateEl;
+    const hasBeforeFar   = urgentEl || nearEl;
+
+    if (urgentEl) tasksContainer.appendChild(urgentEl);
+
+    // Separator 1: after overdue/today tasks
+    if (urgentEl && hasAfterUrgent) {
+        const sep = document.createElement('div');
+        sep.className = 'date-separator';
+        tasksContainer.appendChild(sep);
+    }
+
+    if (nearEl) tasksContainer.appendChild(nearEl);
+
+    // Separator 2: before tasks more than 1 month away
+    if (farEl && hasBeforeFar) {
+        const sep = document.createElement('div');
+        sep.className = 'date-separator long-term';
+        const label = document.createElement('span');
+        label.textContent = '+ 1 Monat';
+        sep.appendChild(label);
+        tasksContainer.appendChild(sep);
+    }
+
+    if (farEl)    tasksContainer.appendChild(farEl);
+    if (nodateEl) tasksContainer.appendChild(nodateEl);
+}
+
+// ── Create a draggable section container ──────────────────────────────────
+function createSectionEl(sectionName, tasks) {
+    const section = document.createElement('div');
+    section.className = 'task-section';
+    section.dataset.section = sectionName;
+
+    section.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (!dragState.element || dragState.section !== sectionName) return;
+        e.dataTransfer.dropEffect = 'move';
+
+        const cards = [...section.querySelectorAll('.task-card:not(.dragging)')];
+        if (dragState.placeholder && dragState.placeholder.parentNode) {
+            dragState.placeholder.remove();
+        }
+
+        let insertBefore = null;
+        for (const card of cards) {
+            const rect = card.getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) {
+                insertBefore = card;
+                break;
+            }
+        }
+
+        if (dragState.placeholder) {
+            insertBefore
+                ? section.insertBefore(dragState.placeholder, insertBefore)
+                : section.appendChild(dragState.placeholder);
+        }
+    });
+
+    section.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragState.element || dragState.section !== sectionName) return;
+
+        if (dragState.placeholder && dragState.placeholder.parentNode === section) {
+            section.insertBefore(dragState.element, dragState.placeholder);
+        }
+        if (dragState.placeholder && dragState.placeholder.parentNode) {
+            dragState.placeholder.remove();
+        }
+
+        // Persist new order for this section
+        const newOrder = [...section.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
+        if (!customOrder) customOrder = {};
+        customOrder[sectionName] = newOrder;
+
+        // Ensure re-sort button is visible
+        if (!tasksContainer.querySelector('.resort-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'resort-btn';
+            btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
+            btn.addEventListener('click', () => {
+                customOrder = null;
+                displayTasks(currentTasksCache);
             });
+            tasksContainer.insertBefore(btn, tasksContainer.firstChild);
+        }
+
+        // Satisfying drop animation
+        const dropped = dragState.element;
+        dropped.classList.add('just-dropped');
+        setTimeout(() => dropped.classList.remove('just-dropped'), 600);
+    });
+
+    tasks.forEach(task => section.appendChild(createTaskCard(task, sectionName)));
+    return section;
+}
+
+// ── Create a single task card DOM element ─────────────────────────────────
+function createTaskCard(task, sectionName) {
+    const progress = task.progress || 0;
+    const dueInfo = getDueDateInfo(task.dueDate);
+    const repeatLabel = getRepeatLabel(task.repeatType);
+    const progressPercent = Math.round((progress / 3) * 100);
+
+    const card = document.createElement('div');
+    card.className = 'task-card';
+    card.dataset.taskId = task.id;
+    card.dataset.section = sectionName;
+    card.draggable = true;
+
+    // Drag events on card
+    card.addEventListener('dragstart', e => {
+        dragState.element = card;
+        dragState.section = sectionName;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', task.id);
+
+        const ph = document.createElement('div');
+        ph.className = 'drag-placeholder';
+        ph.style.height = card.offsetHeight + 'px';
+        dragState.placeholder = ph;
+    });
+
+    card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        if (dragState.placeholder && dragState.placeholder.parentNode) {
+            dragState.placeholder.remove();
+        }
+        dragState = { element: null, section: null, placeholder: null };
+    });
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'task-header';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'task-title';
+    titleEl.textContent = task.title;
+    header.appendChild(titleEl);
+
+    if (dueInfo.badge) {
+        const badge = document.createElement('div');
+        badge.className = 'task-due-badge' + (dueInfo.class ? ' ' + dueInfo.class : '');
+        badge.textContent = dueInfo.badge;
+        header.appendChild(badge);
+    }
+    card.appendChild(header);
+
+    // Progress text
+    const progressText = document.createElement('div');
+    progressText.className = 'progress-text' + (progress === 3 ? ' complete' : '');
+    if (progress === 3) {
+        progressText.innerHTML = '<span class="material-symbols-outlined ms-green" style="font-size:20px">celebration</span> Abgeschlossen!';
+    } else {
+        progressText.textContent = progressPercent + '% erledigt';
+    }
+    card.appendChild(progressText);
+
+    // Progress boxes
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-container';
+    for (let i = 1; i <= 3; i++) {
+        const box = document.createElement('div');
+        box.className = 'progress-box' + (progress >= i ? ' filled' : '');
+        box.addEventListener('click', () => updateProgress(task.id, i));
+        progressContainer.appendChild(box);
+    }
+    card.appendChild(progressContainer);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'task-footer';
+
+    const footerLeft = document.createElement('div');
+    footerLeft.className = 'task-footer-left';
+
+    if (repeatLabel) {
+        const repeatBadge = document.createElement('div');
+        repeatBadge.className = 'task-repeat-badge';
+        repeatBadge.innerHTML = '<span class="material-symbols-outlined ms-green" style="font-size:15px">autorenew</span> ' + escapeHtml(repeatLabel);
+        footerLeft.appendChild(repeatBadge);
+    }
+
+    const postponeBtn = document.createElement('button');
+    postponeBtn.className = 'postpone-btn';
+    postponeBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">fast_forward</span> +1 Tag';
+    postponeBtn.addEventListener('click', () => postponeTask(task.id));
+    footerLeft.appendChild(postponeBtn);
+
+    footer.appendChild(footerLeft);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn' + (progress === 3 ? ' visible' : '');
+    deleteBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">delete</span> Löschen';
+    deleteBtn.addEventListener('click', () => deleteTask(task.id));
+    footer.appendChild(deleteBtn);
+
+    card.appendChild(footer);
+    return card;
+}
+
+// ── Completion modal ───────────────────────────────────────────────────────
+function showCompletionModal(taskId) {
+    const modal = document.getElementById('completion-modal');
+    if (!modal) return;
+    modal.classList.add('active');
+
+    // Replace buttons to clear stale listeners
+    const oldDone = document.getElementById('modal-done-btn');
+    const oldDel  = document.getElementById('modal-delete-btn');
+    const newDone = oldDone.cloneNode(true);
+    const newDel  = oldDel.cloneNode(true);
+    oldDone.parentNode.replaceChild(newDone, oldDone);
+    oldDel.parentNode.replaceChild(newDel, oldDel);
+
+    newDone.addEventListener('click', () => {
+        modal.classList.remove('active');
+        launchConfetti();
+    });
+
+    newDel.addEventListener('click', async () => {
+        modal.classList.remove('active');
+        await deleteTask(taskId, true);
+    });
+}
+
+// ── Confetti ───────────────────────────────────────────────────────────────
+function launchConfetti() {
+    if (typeof confetti === 'undefined') return;
+
+    const colors = ['#00ff88', '#00dd77', '#00bb66', '#88ffcc', '#aaffd9', '#ffffff', '#00ff44'];
+
+    // Big initial burst from center
+    confetti({ particleCount: 200, spread: 100, startVelocity: 65, origin: { y: 0.6 }, colors, zIndex: 9999 });
+
+    // Sustained side cannons
+    const end = Date.now() + 3500;
+    const tick = setInterval(() => {
+        if (Date.now() > end) return clearInterval(tick);
+        confetti({ particleCount: 55, angle: 60,  spread: 60, origin: { x: 0,   y: 0.65 }, colors, zIndex: 9999 });
+        confetti({ particleCount: 55, angle: 120, spread: 60, origin: { x: 1,   y: 0.65 }, colors, zIndex: 9999 });
+    }, 230);
+}
+
+// ── Update task progress ───────────────────────────────────────────────────
+window.updateProgress = async function(taskId, boxNumber) {
+    if (!currentUser) return;
+
+    try {
+        const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
+        const taskSnap = await getDoc(taskRef);
+        if (!taskSnap.exists()) return;
+
+        const taskData = taskSnap.data();
+        const currentProgress = taskData.progress || 0;
+
+        const newProgress = currentProgress >= boxNumber ? boxNumber - 1 : boxNumber;
+
+        const updateData = { progress: newProgress, updatedAt: new Date().toISOString() };
+
+        if (newProgress === 3 && taskData.repeatType !== 'none' && taskData.dueDate) {
+            updateData.nextDueDate = calculateNextDueDate(taskData.dueDate, taskData.repeatType);
+        }
+
+        await updateDoc(taskRef, updateData);
+
+        // Pop animation on clicked box
+        setTimeout(() => {
+            const boxes = tasksContainer.querySelectorAll('[data-task-id="' + CSS.escape(taskId) + '"] .progress-box');
+            const target = boxes[boxNumber - 1];
+            if (target) {
+                target.classList.add('just-filled');
+                setTimeout(() => target.classList.remove('just-filled'), 400);
+            }
         }, 50);
-        
+
+        if (newProgress === 3) {
+            setTimeout(() => showCompletionModal(taskId), 350);
+        }
+
     } catch (error) {
         console.error('Error updating task progress:', error);
         alert('Fehler beim Aktualisieren des Fortschritts');
     }
 };
 
-// Postpone task to next day
+// ── Postpone task ──────────────────────────────────────────────────────────
 window.postponeTask = async function(taskId) {
     if (!currentUser) return;
-    
+
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
         const taskSnap = await getDoc(taskRef);
-        
-        if (!taskSnap.exists()) {
-            console.error('Task not found');
-            return;
-        }
-        
+        if (!taskSnap.exists()) return;
+
         const taskData = taskSnap.data();
-        const currentDueDate = taskData.dueDate;
-        
-        // Calculate next day
         let newDueDate;
-        if (currentDueDate) {
-            const date = new Date(currentDueDate);
+
+        if (taskData.dueDate) {
+            const date = new Date(taskData.dueDate);
             date.setDate(date.getDate() + 1);
             newDueDate = date.toISOString().split('T')[0];
         } else {
-            // If no due date, set to tomorrow
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             newDueDate = tomorrow.toISOString().split('T')[0];
         }
-        
+
         await updateDoc(taskRef, {
             dueDate: newDueDate,
             nextDueDate: newDueDate,
             updatedAt: new Date().toISOString()
         });
-        
-        console.log('Task postponed to next day:', newDueDate);
     } catch (error) {
         console.error('Error postponing task:', error);
         alert('Fehler beim Verschieben der Aufgabe');
     }
 };
 
-// Delete task
-window.deleteTask = async function(taskId) {
+// ── Delete task ────────────────────────────────────────────────────────────
+window.deleteTask = async function(taskId, skipConfirm = false) {
     if (!currentUser) return;
-    
-    if (!confirm('Möchtest du diese Aufgabe wirklich löschen?')) {
-        return;
-    }
-    
+
+    if (!skipConfirm && !confirm('Möchtest du diese Aufgabe wirklich löschen?')) return;
+
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
         await deleteDoc(taskRef);
@@ -472,29 +625,41 @@ window.deleteTask = async function(taskId) {
     }
 };
 
-// Helper functions
-function getTodayString() {
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getDueDateInfo(dueDate) {
+    if (!dueDate) return { badge: null, class: '' };
+
     const today = new Date();
-    return today.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    today.setHours(0, 0, 0, 0);
+
+    const [y, m, d] = dueDate.split('-').map(Number);
+    const due = new Date(y, m - 1, d);
+
+    const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0)   return { badge: Math.abs(diffDays) + 'd überfällig', class: 'overdue' };
+    if (diffDays === 0) return { badge: 'Heute fällig',                       class: 'today'   };
+    if (diffDays === 1) return { badge: 'Morgen fällig',                      class: ''        };
+    if (diffDays <= 7)  return { badge: 'In ' + diffDays + ' Tagen',         class: ''        };
+    return                     { badge: 'Fällig: ' + formatDate(dueDate),    class: ''        };
+}
+
+function getRepeatLabel(repeatType) {
+    const map = { none: '', daily: 'Täglich', every2days: 'Alle 2 Tage', every3days: 'Alle 3 Tage', weekly: 'Wöchentlich', monthly: 'Monatlich' };
+    return map[repeatType] || '';
+}
+
+function getTodayString() {
+    return new Date().toISOString().split('T')[0];
 }
 
 function formatDate(dateString) {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
+    const [y, m, d] = dateString.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<>"']/g, c => map[c]);
 }
