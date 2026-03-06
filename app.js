@@ -38,7 +38,15 @@ let customOrder = null;
 // Cache of latest tasks array for re-sorting
 let currentTasksCache = [];
 // Drag state
-let dragState = { element: null, section: null, placeholder: null };
+const LONG_PRESS_MS = 750;
+const SCROLL_ZONE_PX = 60;
+const SCROLL_MAX_SPEED = 12;
+let compactDrag = {
+    active: false, card: null, section: null, sectionEl: null,
+    ghost: null, placeholder: null, offsetX: 0, offsetY: 0,
+    scrollRAF: null, hasMoved: false, lastMouseY: 0
+};
+let longPressTimer = null;
 
 // ── iOS / iPadOS: block overscroll & zoom ─────────────────────────────────
 // Prevent pinch-zoom gesture events (Safari-specific)
@@ -54,7 +62,7 @@ document.addEventListener('touchstart', e => {
 
 document.addEventListener('touchmove', e => {
     // Never block while a card is being dragged
-    if (dragState.element) return;
+    if (compactDrag.active) return;
 
     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
     const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
@@ -322,66 +330,6 @@ function createSectionEl(sectionName, tasks) {
     section.className = 'task-section';
     section.dataset.section = sectionName;
 
-    section.addEventListener('dragover', e => {
-        e.preventDefault();
-        if (!dragState.element || dragState.section !== sectionName) return;
-        e.dataTransfer.dropEffect = 'move';
-
-        const cards = [...section.querySelectorAll('.task-card:not(.dragging)')];
-        if (dragState.placeholder && dragState.placeholder.parentNode) {
-            dragState.placeholder.remove();
-        }
-
-        let insertBefore = null;
-        for (const card of cards) {
-            const rect = card.getBoundingClientRect();
-            if (e.clientY < rect.top + rect.height / 2) {
-                insertBefore = card;
-                break;
-            }
-        }
-
-        if (dragState.placeholder) {
-            insertBefore
-                ? section.insertBefore(dragState.placeholder, insertBefore)
-                : section.appendChild(dragState.placeholder);
-        }
-    });
-
-    section.addEventListener('drop', e => {
-        e.preventDefault();
-        if (!dragState.element || dragState.section !== sectionName) return;
-
-        if (dragState.placeholder && dragState.placeholder.parentNode === section) {
-            section.insertBefore(dragState.element, dragState.placeholder);
-        }
-        if (dragState.placeholder && dragState.placeholder.parentNode) {
-            dragState.placeholder.remove();
-        }
-
-        // Persist new order for this section
-        const newOrder = [...section.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
-        if (!customOrder) customOrder = {};
-        customOrder[sectionName] = newOrder;
-
-        // Ensure re-sort button is visible
-        if (!tasksContainer.querySelector('.resort-btn')) {
-            const btn = document.createElement('button');
-            btn.className = 'resort-btn';
-            btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
-            btn.addEventListener('click', () => {
-                customOrder = null;
-                displayTasks(currentTasksCache);
-            });
-            tasksContainer.insertBefore(btn, tasksContainer.firstChild);
-        }
-
-        // Satisfying drop animation
-        const dropped = dragState.element;
-        dropped.classList.add('just-dropped');
-        setTimeout(() => dropped.classList.remove('just-dropped'), 600);
-    });
-
     tasks.forEach(task => section.appendChild(createTaskCard(task, sectionName)));
     return section;
 }
@@ -397,28 +345,42 @@ function createTaskCard(task, sectionName) {
     card.className = 'task-card';
     card.dataset.taskId = task.id;
     card.dataset.section = sectionName;
-    card.draggable = true;
+    card.draggable = false;
 
-    // Drag events on card
-    card.addEventListener('dragstart', e => {
-        dragState.element = card;
-        dragState.section = sectionName;
-        card.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', task.id);
+    // Long-press handler for compact drag
+    card.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest('button, .progress-box')) return;
+        // Prevent text selection during hold
+        e.preventDefault();
 
-        const ph = document.createElement('div');
-        ph.className = 'drag-placeholder';
-        ph.style.height = card.offsetHeight + 'px';
-        dragState.placeholder = ph;
-    });
+        const startX = e.clientX;
+        const startY = e.clientY;
 
-    card.addEventListener('dragend', () => {
-        card.classList.remove('dragging');
-        if (dragState.placeholder && dragState.placeholder.parentNode) {
-            dragState.placeholder.remove();
-        }
-        dragState = { element: null, section: null, placeholder: null };
+        const onEarlyMove = (me) => {
+            if (Math.abs(me.clientX - startX) > 8 || Math.abs(me.clientY - startY) > 8) {
+                clearTimeout(longPressTimer);
+                earlyCleanup();
+            }
+        };
+
+        const onEarlyUp = () => {
+            clearTimeout(longPressTimer);
+            earlyCleanup();
+        };
+
+        const earlyCleanup = () => {
+            document.removeEventListener('mousemove', onEarlyMove);
+            document.removeEventListener('mouseup', onEarlyUp);
+        };
+
+        longPressTimer = setTimeout(() => {
+            earlyCleanup();
+            startCompactDrag(card, sectionName, startX, startY);
+        }, LONG_PRESS_MS);
+
+        document.addEventListener('mousemove', onEarlyMove);
+        document.addEventListener('mouseup', onEarlyUp);
     });
 
     // Header
@@ -489,6 +451,150 @@ function createTaskCard(task, sectionName) {
 
     card.appendChild(footer);
     return card;
+}
+
+// ── Compact-mode drag system ──────────────────────────────────────────────
+function startCompactDrag(card, sectionName, mouseX, mouseY) {
+    document.body.classList.add('compact-mode');
+
+    const sectionEl = card.closest('.task-section');
+    const cardRect = card.getBoundingClientRect();
+
+    // Ghost element (floating card title)
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.textContent = card.querySelector('.task-title').textContent;
+    ghost.style.width = cardRect.width + 'px';
+    ghost.style.left = cardRect.left + 'px';
+    ghost.style.top = cardRect.top + 'px';
+    document.body.appendChild(ghost);
+
+    // Placeholder
+    const placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = '44px';
+    sectionEl.insertBefore(placeholder, card);
+
+    // Hide source card
+    card.classList.add('drag-source');
+
+    compactDrag = {
+        active: true, card, section: sectionName, sectionEl, ghost, placeholder,
+        offsetX: mouseX - cardRect.left, offsetY: mouseY - cardRect.top,
+        scrollRAF: null, hasMoved: false, lastMouseY: mouseY
+    };
+
+    // Start continuous auto-scroll loop
+    (function scrollTick() {
+        if (!compactDrag.active) return;
+        const vh = window.innerHeight;
+        const y = compactDrag.lastMouseY;
+        if (y > vh - SCROLL_ZONE_PX) {
+            window.scrollBy(0, ((y - (vh - SCROLL_ZONE_PX)) / SCROLL_ZONE_PX) * SCROLL_MAX_SPEED);
+            updatePlaceholder(y);
+        } else if (y < SCROLL_ZONE_PX) {
+            window.scrollBy(0, -(((SCROLL_ZONE_PX - y) / SCROLL_ZONE_PX) * SCROLL_MAX_SPEED));
+            updatePlaceholder(y);
+        }
+        compactDrag.scrollRAF = requestAnimationFrame(scrollTick);
+    })();
+
+    document.addEventListener('mousemove', onCompactDragMove);
+    document.addEventListener('mouseup', onCompactDragEnd);
+}
+
+function onCompactDragMove(e) {
+    if (!compactDrag.active) return;
+    compactDrag.hasMoved = true;
+    compactDrag.lastMouseY = e.clientY;
+
+    const { ghost } = compactDrag;
+    ghost.style.left = (e.clientX - compactDrag.offsetX) + 'px';
+    ghost.style.top = (e.clientY - compactDrag.offsetY) + 'px';
+
+    updatePlaceholder(e.clientY);
+}
+
+function updatePlaceholder(mouseY) {
+    const { placeholder, sectionEl } = compactDrag;
+    if (!placeholder || !sectionEl) return;
+
+    const cards = [...sectionEl.querySelectorAll('.task-card:not(.drag-source)')];
+    let insertBefore = null;
+
+    for (const c of cards) {
+        const rect = c.getBoundingClientRect();
+        if (mouseY < rect.top + rect.height / 2) {
+            insertBefore = c;
+            break;
+        }
+    }
+
+    const currentNext = placeholder.nextElementSibling;
+    if (insertBefore !== currentNext || placeholder.parentNode !== sectionEl) {
+        if (placeholder.parentNode) placeholder.remove();
+        if (insertBefore) {
+            sectionEl.insertBefore(placeholder, insertBefore);
+        } else {
+            sectionEl.appendChild(placeholder);
+        }
+    }
+}
+
+function onCompactDragEnd() {
+    if (!compactDrag.active) return;
+
+    const { card, ghost, placeholder, sectionEl, section, hasMoved } = compactDrag;
+
+    // Stop auto-scroll
+    if (compactDrag.scrollRAF) cancelAnimationFrame(compactDrag.scrollRAF);
+
+    // Insert card at placeholder position
+    if (placeholder.parentNode === sectionEl) {
+        sectionEl.insertBefore(card, placeholder);
+    }
+
+    // Clean up DOM
+    if (placeholder.parentNode) placeholder.remove();
+    if (ghost.parentNode) ghost.remove();
+    card.classList.remove('drag-source');
+
+    if (hasMoved) {
+        // Persist new order for this section
+        const newOrder = [...sectionEl.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
+        if (!customOrder) customOrder = {};
+        customOrder[section] = newOrder;
+
+        // Ensure re-sort button is visible
+        if (!tasksContainer.querySelector('.resort-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'resort-btn';
+            btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
+            btn.addEventListener('click', () => {
+                customOrder = null;
+                displayTasks(currentTasksCache);
+            });
+            tasksContainer.insertBefore(btn, tasksContainer.firstChild);
+        }
+
+        // Satisfying drop animation
+        card.classList.add('just-dropped');
+        setTimeout(() => card.classList.remove('just-dropped'), 600);
+    }
+
+    // Exit compact mode (small delay for smooth visual)
+    setTimeout(() => document.body.classList.remove('compact-mode'), 150);
+
+    // Remove listeners
+    document.removeEventListener('mousemove', onCompactDragMove);
+    document.removeEventListener('mouseup', onCompactDragEnd);
+
+    // Reset state
+    compactDrag = {
+        active: false, card: null, section: null, sectionEl: null,
+        ghost: null, placeholder: null, offsetX: 0, offsetY: 0,
+        scrollRAF: null, hasMoved: false, lastMouseY: 0
+    };
 }
 
 // ── Completion modal ───────────────────────────────────────────────────────
