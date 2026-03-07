@@ -24,6 +24,7 @@ const loginContainer = document.getElementById('login-container');
 const appContainer = document.getElementById('app');
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
+const lockBtn = document.getElementById('lock-btn');
 const userNameSpan = document.getElementById('user-name');
 const addTaskBtn = document.getElementById('add-task-btn');
 const tasksContainer = document.getElementById('tasks-container');
@@ -39,6 +40,11 @@ let customOrder = null;
 let currentTasksCache = [];
 // Drag state
 let dragState = { element: null, section: null, placeholder: null };
+
+// ── Cross-category drag lock ───────────────────────────────────────────────
+// true  = tasks can only be reordered within their own category (default)
+// false = tasks may be dragged across category boundaries
+let crossCategoryDragLocked = true;
 
 // ── Long-press / touch drag constants & state ─────────────────────────────
 const LONG_PRESS_MS = 750;
@@ -92,6 +98,15 @@ logoutBtn.addEventListener('click', async () => {
     } catch (error) {
         console.error('Logout error:', error);
     }
+});
+
+// Lock / unlock cross-category dragging
+lockBtn.addEventListener('click', () => {
+    crossCategoryDragLocked = !crossCategoryDragLocked;
+    const icon = lockBtn.querySelector('.material-symbols-outlined');
+    icon.textContent = crossCategoryDragLocked ? 'lock' : 'lock_open';
+    lockBtn.classList.toggle('unlocked', !crossCategoryDragLocked);
+    lockBtn.title = crossCategoryDragLocked ? 'Drag-Kategorien sperren' : 'Drag-Kategorien entsperrt';
 });
 
 // Auth state observer
@@ -330,7 +345,8 @@ function createSectionEl(sectionName, tasks) {
 
     section.addEventListener('dragover', e => {
         e.preventDefault();
-        if (!dragState.element || dragState.section !== sectionName) return;
+        if (!dragState.element) return;
+        if (crossCategoryDragLocked && dragState.section !== sectionName) return;
         e.dataTransfer.dropEffect = 'move';
 
         const cards = [...section.querySelectorAll('.task-card:not(.dragging)')];
@@ -356,7 +372,8 @@ function createSectionEl(sectionName, tasks) {
 
     section.addEventListener('drop', e => {
         e.preventDefault();
-        if (!dragState.element || dragState.section !== sectionName) return;
+        if (!dragState.element) return;
+        if (crossCategoryDragLocked && dragState.section !== sectionName) return;
 
         if (dragState.placeholder && dragState.placeholder.parentNode === section) {
             section.insertBefore(dragState.element, dragState.placeholder);
@@ -365,10 +382,18 @@ function createSectionEl(sectionName, tasks) {
             dragState.placeholder.remove();
         }
 
-        // Persist new order for this section
+        // Persist new order for the target section
         const newOrder = [...section.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
         if (!customOrder) customOrder = {};
         customOrder[sectionName] = newOrder;
+
+        // If cross-section drop, also persist the updated source section order
+        if (dragState.section !== sectionName) {
+            const srcSection = tasksContainer.querySelector(`.task-section[data-section="${dragState.section}"]`);
+            if (srcSection) {
+                customOrder[dragState.section] = [...srcSection.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
+            }
+        }
 
         // Ensure re-sort button is visible
         if (!tasksContainer.querySelector('.resort-btn')) {
@@ -412,6 +437,7 @@ function createTaskCard(task, sectionName) {
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', task.id);
+        document.body.classList.add('dragging-active');
 
         const ph = document.createElement('div');
         ph.className = 'drag-placeholder';
@@ -424,6 +450,7 @@ function createTaskCard(task, sectionName) {
         if (dragState.placeholder && dragState.placeholder.parentNode) {
             dragState.placeholder.remove();
         }
+        document.body.classList.remove('dragging-active');
         dragState = { element: null, section: null, placeholder: null };
     });
 
@@ -438,9 +465,14 @@ function createTaskCard(task, sectionName) {
         lpTimer = setTimeout(() => {
             lpTimer = null;
             if (navigator.vibrate) navigator.vibrate(30);
+            // Clear any active text selection before entering drag mode
+            window.getSelection()?.removeAllRanges();
+            document.body.classList.add('dragging-active');
             compactDrag.element = card;
             compactDrag.section = sectionName;
             card.style.touchAction = 'none';
+            // Collapse the card to title-only so it's compact while dragging
+            card.classList.add('drag-compact');
             card.classList.add('dragging');
             const ph = document.createElement('div');
             ph.className = 'drag-placeholder';
@@ -454,7 +486,20 @@ function createTaskCard(task, sectionName) {
         if (compactDrag.element === card) {
             e.preventDefault();
             const t = e.touches[0];
-            const sec = card.closest('.task-section');
+
+            // Determine the target section: locked = original section only,
+            // unlocked = section currently under the touch point
+            let sec;
+            if (crossCategoryDragLocked) {
+                sec = card.closest('.task-section');
+            } else {
+                const ph = compactDrag.placeholder;
+                if (ph) ph.style.display = 'none';
+                const elemBelow = document.elementFromPoint(t.clientX, t.clientY);
+                if (ph) ph.style.display = '';
+                sec = (elemBelow && elemBelow.closest('.task-section')) || card.closest('.task-section');
+            }
+
             if (!sec || !compactDrag.placeholder) return;
             const siblings = [...sec.querySelectorAll('.task-card:not(.dragging)')];
             if (compactDrag.placeholder.parentNode) compactDrag.placeholder.remove();
@@ -488,13 +533,23 @@ function createTaskCard(task, sectionName) {
         const ph = compactDrag.placeholder;
         const sec = ph && ph.parentNode ? ph.parentNode : card.closest('.task-section');
         if (ph && ph.parentNode) { ph.parentNode.insertBefore(card, ph); ph.remove(); }
+        card.classList.remove('drag-compact');
         card.classList.remove('dragging');
         card.style.touchAction = '';
+        document.body.classList.remove('dragging-active');
         // Persist new order
         if (sec) {
+            const targetSectionName = sec.dataset.section;
             const newOrder = [...sec.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
             if (!customOrder) customOrder = {};
-            customOrder[sectionName] = newOrder;
+            customOrder[targetSectionName] = newOrder;
+            // If cross-section drop, also persist the updated source section order
+            if (targetSectionName !== sectionName) {
+                const srcSection = tasksContainer.querySelector(`.task-section[data-section="${sectionName}"]`);
+                if (srcSection) {
+                    customOrder[sectionName] = [...srcSection.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
+                }
+            }
             if (!tasksContainer.querySelector('.resort-btn')) {
                 const btn = document.createElement('button');
                 btn.className = 'resort-btn';
@@ -512,8 +567,10 @@ function createTaskCard(task, sectionName) {
         if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
         if (compactDrag.element !== card) return;
         if (compactDrag.placeholder && compactDrag.placeholder.parentNode) compactDrag.placeholder.remove();
+        card.classList.remove('drag-compact');
         card.classList.remove('dragging');
         card.style.touchAction = '';
+        document.body.classList.remove('dragging-active');
         compactDrag = { element: null, section: null, placeholder: null };
     });
 
