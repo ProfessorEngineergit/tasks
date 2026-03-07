@@ -52,6 +52,47 @@ const SCROLL_ZONE_PX = 80;
 const SCROLL_MAX_SPEED = 12;
 let compactDrag = { element: null, section: null, placeholder: null };
 
+// ── Settings ──────────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = {
+    // Appearance
+    fontFamily: 'Exo 2',
+    accentColor: '#00ff88',
+    fontSize: 16,
+    cardRadius: 20,
+    borderWidth: 2,
+    cardBackground: 'jet',
+    animationSpeed: 'normal',
+    backgroundPattern: 'none',
+    cardGlow: true,
+    hoverLift: true,
+    // Cards
+    showProgressText: true,
+    progressStyle: 'boxes',
+    showRepeatBadge: true,
+    showPostponeBtn: true,
+    showDueBadge: true,
+    cardSpacing: 16,
+    taskTitleSize: 20,
+    showCreatedDate: false,
+    urgentRedTint: false,
+    // Behavior
+    confirmDelete: true,
+    showConfetti: true,
+    dateFormat: 'de',
+    showTaskCount: false,
+    defaultRepeatType: 'none',
+    crossDragDefault: false,
+    autoSortNew: false,
+    firstDayOfWeek: 'monday',
+    // Labs
+    focusMode: false,
+    compactMode: false,
+    reverseSortOrder: false,
+    glassmorphism: false,
+    sectionCountBadge: false,
+};
+let currentSettings = { ...DEFAULT_SETTINGS };
+
 // ── iOS / iPadOS: block overscroll & zoom ─────────────────────────────────
 // Prevent pinch-zoom gesture events (Safari-specific)
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
@@ -94,6 +135,8 @@ loginBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', async () => {
     try {
         await signOut(auth);
+        currentSettings = { ...DEFAULT_SETTINGS };
+        applySettings(currentSettings);
         console.log('Logout successful');
     } catch (error) {
         console.error('Logout error:', error);
@@ -110,13 +153,16 @@ lockBtn.addEventListener('click', () => {
 });
 
 // Auth state observer
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         loginContainer.style.display = 'none';
         appContainer.classList.add('active');
         userNameSpan.textContent = user.displayName || user.email || 'User';
+        await loadSettings(user.uid);
+        await loadCustomOrder(user.uid);
         loadTasks(user.uid);
+        initSettingsModal();
     } else {
         currentUser = null;
         loginContainer.style.display = 'block';
@@ -153,6 +199,7 @@ addTaskBtn.addEventListener('click', async () => {
             progress: 0,
             repeatType,
             nextDueDate: dueDate || null,
+            important: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -167,6 +214,265 @@ addTaskBtn.addEventListener('click', async () => {
         alert('Fehler beim Hinzufügen der Aufgabe: ' + error.message);
     }
 });
+
+// ── Settings helpers ───────────────────────────────────────────────────────
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r}, ${g}, ${b}`;
+}
+
+const CARD_BG_MAP = { jet: '#0a0a0a', dark: '#111111', deep: '#050505', charcoal: '#141414' };
+const FONT_STACK_MAP = {
+    'Exo 2': "'Exo 2', sans-serif",
+    'Orbitron': "'Orbitron', sans-serif",
+    'Audiowide': "'Audiowide', sans-serif",
+    'Nasalization': "'Nasalization', sans-serif",
+    'Rajdhani': "'Rajdhani', sans-serif",
+    'Inter': "'Inter', sans-serif",
+    'Share Tech Mono': "'Share Tech Mono', monospace",
+    'JetBrains Mono': "'JetBrains Mono', monospace",
+    'Press Start 2P': "'Press Start 2P', monospace",
+    'VT323': "'VT323', monospace",
+};
+
+function applySettings(s) {
+    const root = document.documentElement;
+    root.style.setProperty('--accent', s.accentColor);
+    root.style.setProperty('--accent-rgb', hexToRgb(s.accentColor));
+    root.style.setProperty('--font-ui', FONT_STACK_MAP[s.fontFamily] || "'Exo 2', sans-serif");
+    root.style.setProperty('--font-size-base', s.fontSize + 'px');
+    root.style.setProperty('--card-radius', s.cardRadius + 'px');
+    root.style.setProperty('--card-border-w', s.borderWidth + 'px');
+    root.style.setProperty('--card-bg', CARD_BG_MAP[s.cardBackground] || '#0a0a0a');
+    root.style.setProperty('--card-spacing', s.cardSpacing + 'px');
+    root.style.setProperty('--title-size', s.taskTitleSize + 'px');
+
+    const body = document.body;
+    body.classList.toggle('pref-no-hover-lift', !s.hoverLift);
+    body.classList.toggle('pref-no-glow', !s.cardGlow);
+    body.classList.toggle('pref-no-progress-text', !s.showProgressText);
+    body.classList.toggle('pref-no-repeat-badge', !s.showRepeatBadge);
+    body.classList.toggle('pref-no-postpone', !s.showPostponeBtn);
+    body.classList.toggle('pref-no-due-badge', !s.showDueBadge);
+    body.classList.toggle('pref-urgent-red', s.urgentRedTint);
+    body.classList.toggle('pref-focus-mode', s.focusMode);
+    body.classList.toggle('pref-compact', s.compactMode);
+    body.classList.toggle('pref-glass', s.glassmorphism);
+    body.classList.toggle('pref-section-count', s.sectionCountBadge);
+    body.classList.toggle('pref-show-created', s.showCreatedDate);
+
+    body.classList.remove('pref-bg-dots', 'pref-bg-grid');
+    if (s.backgroundPattern === 'dots') body.classList.add('pref-bg-dots');
+    else if (s.backgroundPattern === 'grid') body.classList.add('pref-bg-grid');
+
+    body.classList.remove('pref-anim-off', 'pref-anim-slow', 'pref-anim-fast');
+    if (s.animationSpeed === 'off') body.classList.add('pref-anim-off');
+    else if (s.animationSpeed === 'slow') body.classList.add('pref-anim-slow');
+    else if (s.animationSpeed === 'fast') body.classList.add('pref-anim-fast');
+
+    crossCategoryDragLocked = !s.crossDragDefault;
+    const lockIcon = lockBtn.querySelector('.material-symbols-outlined');
+    if (lockIcon) lockIcon.textContent = crossCategoryDragLocked ? 'lock' : 'lock_open';
+    lockBtn.classList.toggle('unlocked', !crossCategoryDragLocked);
+
+    const repeatSelect = document.getElementById('task-repeat');
+    if (repeatSelect && repeatSelect.value === 'none') repeatSelect.value = s.defaultRepeatType;
+}
+
+async function saveSettings() {
+    if (!currentUser) return;
+    try {
+        const ref = doc(db, `users/${currentUser.uid}/settings/preferences`);
+        await setDoc(ref, { ...currentSettings });
+    } catch (e) { console.error('Error saving settings:', e); }
+}
+
+async function loadSettings(uid) {
+    try {
+        const ref = doc(db, `users/${uid}/settings/preferences`);
+        const snap = await getDoc(ref);
+        if (snap.exists()) currentSettings = { ...DEFAULT_SETTINGS, ...snap.data() };
+    } catch (e) { console.error('Error loading settings:', e); }
+    applySettings(currentSettings);
+}
+
+async function saveCustomOrder() {
+    if (!currentUser) return;
+    try {
+        const ref = doc(db, `users/${currentUser.uid}/settings/order`);
+        await setDoc(ref, { order: customOrder });
+    } catch (e) { console.error('Error saving order:', e); }
+}
+
+async function loadCustomOrder(uid) {
+    try {
+        const ref = doc(db, `users/${uid}/settings/order`);
+        const snap = await getDoc(ref);
+        if (snap.exists() && snap.data().order) customOrder = snap.data().order;
+    } catch (e) { console.error('Error loading order:', e); }
+}
+
+// ── Settings modal ─────────────────────────────────────────────────────────
+function initSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    if (!modal) return;
+    const openBtn = document.getElementById('settings-btn');
+    const closeBtn = document.getElementById('settings-close-btn');
+    const resetBtn = document.getElementById('settings-reset-btn');
+
+    openBtn.addEventListener('click', () => {
+        modal.classList.add('active');
+        syncSettingsUI(currentSettings);
+    });
+    closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
+
+    resetBtn.addEventListener('click', async () => {
+        if (!confirm('Alle Einstellungen zurücksetzen?')) return;
+        currentSettings = { ...DEFAULT_SETTINGS };
+        await saveSettings();
+        applySettings(currentSettings);
+        syncSettingsUI(currentSettings);
+        if (currentTasksCache.length > 0) displayTasks(currentTasksCache);
+    });
+
+    document.querySelectorAll('.settings-tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const name = tab.dataset.tab;
+            document.querySelectorAll('.settings-tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+            document.querySelectorAll('.settings-tab-pane').forEach(p => p.classList.toggle('active', p.dataset.tab === name));
+        });
+    });
+
+    function onSettingChange(key, value, needsRerender = false) {
+        currentSettings[key] = value;
+        applySettings(currentSettings);
+        if (needsRerender && currentTasksCache.length > 0) displayTasks(currentTasksCache);
+        saveSettings();
+    }
+
+    // Selects
+    [
+        ['s-fontFamily', 'fontFamily', false],
+        ['s-cardBackground', 'cardBackground', false],
+        ['s-animationSpeed', 'animationSpeed', false],
+        ['s-backgroundPattern', 'backgroundPattern', false],
+        ['s-progressStyle', 'progressStyle', true],
+        ['s-dateFormat', 'dateFormat', false],
+        ['s-defaultRepeatType', 'defaultRepeatType', false],
+        ['s-firstDayOfWeek', 'firstDayOfWeek', false],
+    ].forEach(([id, key, rerender]) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => onSettingChange(key, el.value, rerender));
+    });
+
+    // Ranges
+    [
+        ['s-fontSize', 'fontSize', false, 'px'],
+        ['s-cardRadius', 'cardRadius', false, 'px'],
+        ['s-borderWidth', 'borderWidth', false, 'px'],
+        ['s-cardSpacing', 'cardSpacing', false, 'px'],
+        ['s-taskTitleSize', 'taskTitleSize', false, 'px'],
+    ].forEach(([id, key, rerender, unit]) => {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById(id + '-val');
+        if (el) el.addEventListener('input', () => {
+            const v = parseInt(el.value);
+            if (valEl) valEl.textContent = v + unit;
+            onSettingChange(key, v, rerender);
+        });
+    });
+
+    // Color picker
+    const colorEl = document.getElementById('s-accentColor');
+    if (colorEl) colorEl.addEventListener('input', () => onSettingChange('accentColor', colorEl.value));
+
+    // Color presets
+    document.querySelectorAll('.color-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const color = btn.dataset.color;
+            const ce = document.getElementById('s-accentColor');
+            if (ce) ce.value = color;
+            onSettingChange('accentColor', color);
+        });
+    });
+
+    // Toggles
+    [
+        ['s-cardGlow', 'cardGlow', false],
+        ['s-hoverLift', 'hoverLift', false],
+        ['s-showProgressText', 'showProgressText', false],
+        ['s-showRepeatBadge', 'showRepeatBadge', false],
+        ['s-showPostponeBtn', 'showPostponeBtn', false],
+        ['s-showDueBadge', 'showDueBadge', false],
+        ['s-showCreatedDate', 'showCreatedDate', false],
+        ['s-urgentRedTint', 'urgentRedTint', false],
+        ['s-confirmDelete', 'confirmDelete', false],
+        ['s-showConfetti', 'showConfetti', false],
+        ['s-showTaskCount', 'showTaskCount', true],
+        ['s-crossDragDefault', 'crossDragDefault', false],
+        ['s-autoSortNew', 'autoSortNew', false],
+        ['s-focusMode', 'focusMode', true],
+        ['s-compactMode', 'compactMode', false],
+        ['s-reverseSortOrder', 'reverseSortOrder', true],
+        ['s-glassmorphism', 'glassmorphism', false],
+        ['s-sectionCountBadge', 'sectionCountBadge', true],
+    ].forEach(([id, key, rerender]) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', () => {
+            const newVal = !currentSettings[key];
+            el.classList.toggle('on', newVal);
+            onSettingChange(key, newVal, rerender);
+        });
+    });
+}
+
+function syncSettingsUI(s) {
+    const g = id => document.getElementById(id);
+    if (g('s-fontFamily')) g('s-fontFamily').value = s.fontFamily;
+    if (g('s-cardBackground')) g('s-cardBackground').value = s.cardBackground;
+    if (g('s-animationSpeed')) g('s-animationSpeed').value = s.animationSpeed;
+    if (g('s-backgroundPattern')) g('s-backgroundPattern').value = s.backgroundPattern;
+    if (g('s-progressStyle')) g('s-progressStyle').value = s.progressStyle;
+    if (g('s-dateFormat')) g('s-dateFormat').value = s.dateFormat;
+    if (g('s-defaultRepeatType')) g('s-defaultRepeatType').value = s.defaultRepeatType;
+    if (g('s-firstDayOfWeek')) g('s-firstDayOfWeek').value = s.firstDayOfWeek;
+
+    const sr = (id, val, unit) => { const r = g(id), v = g(id+'-val'); if(r) r.value=val; if(v) v.textContent=val+unit; };
+    sr('s-fontSize', s.fontSize, 'px');
+    sr('s-cardRadius', s.cardRadius, 'px');
+    sr('s-borderWidth', s.borderWidth, 'px');
+    sr('s-cardSpacing', s.cardSpacing, 'px');
+    sr('s-taskTitleSize', s.taskTitleSize, 'px');
+
+    if (g('s-accentColor')) g('s-accentColor').value = s.accentColor;
+
+    [
+        ['s-cardGlow','cardGlow'],['s-hoverLift','hoverLift'],
+        ['s-showProgressText','showProgressText'],['s-showRepeatBadge','showRepeatBadge'],
+        ['s-showPostponeBtn','showPostponeBtn'],['s-showDueBadge','showDueBadge'],
+        ['s-showCreatedDate','showCreatedDate'],['s-urgentRedTint','urgentRedTint'],
+        ['s-confirmDelete','confirmDelete'],['s-showConfetti','showConfetti'],
+        ['s-showTaskCount','showTaskCount'],['s-crossDragDefault','crossDragDefault'],
+        ['s-autoSortNew','autoSortNew'],['s-focusMode','focusMode'],
+        ['s-compactMode','compactMode'],['s-reverseSortOrder','reverseSortOrder'],
+        ['s-glassmorphism','glassmorphism'],['s-sectionCountBadge','sectionCountBadge'],
+    ].forEach(([id, key]) => { const t = g(id); if(t) t.classList.toggle('on', !!s[key]); });
+}
+
+// ── Toggle important ───────────────────────────────────────────────────────
+window.toggleImportant = async function(taskId) {
+    if (!currentUser) return;
+    try {
+        const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
+        const taskSnap = await getDoc(taskRef);
+        if (!taskSnap.exists()) return;
+        const taskData = taskSnap.data();
+        await updateDoc(taskRef, { important: !taskData.important, updatedAt: new Date().toISOString() });
+    } catch (e) { console.error('Error toggling important:', e); }
+};
 
 // ── Load tasks ─────────────────────────────────────────────────────────────
 function loadTasks(uid) {
@@ -189,6 +495,7 @@ function loadTasks(uid) {
             return new Date(a.dueDate) - new Date(b.dueDate);
         });
 
+        if (currentSettings.reverseSortOrder) tasks.reverse();
         displayTasks(tasks);
     }, (error) => {
         console.error('Error loading tasks:', error);
@@ -239,6 +546,21 @@ function calculateNextDueDate(currentDate, repeatType) {
 // ── Display tasks ──────────────────────────────────────────────────────────
 function displayTasks(tasks) {
     currentTasksCache = tasks;
+
+    // Apply sort settings when not using custom order
+    if (!customOrder) {
+        if (currentSettings.autoSortNew) {
+            tasks = [...tasks].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        }
+    }
+
+    // Update task count badge
+    const badge = document.getElementById('task-count-badge');
+    if (badge) {
+        badge.textContent = tasks.length;
+        badge.style.display = currentSettings.showTaskCount ? 'inline' : 'none';
+    }
+
     tasksContainer.innerHTML = '';
 
     if (tasks.length === 0) {
@@ -296,10 +618,7 @@ function displayTasks(tasks) {
         const btn = document.createElement('button');
         btn.className = 'resort-btn';
         btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
-        btn.addEventListener('click', () => {
-            customOrder = null;
-            displayTasks(currentTasksCache);
-        });
+        btn.addEventListener('click', async () => { customOrder = null; await saveCustomOrder(); displayTasks(currentTasksCache); });
         tasksContainer.appendChild(btn);
     }
 
@@ -342,6 +661,12 @@ function createSectionEl(sectionName, tasks) {
     const section = document.createElement('div');
     section.className = 'task-section';
     section.dataset.section = sectionName;
+
+    const sectionLabels = { urgent: '⚠ Überfällig', near: '📅 Bald fällig', far: '🗓 Später', nodate: '📌 Kein Datum' };
+    const countBadge = document.createElement('div');
+    countBadge.className = 'section-count-badge';
+    countBadge.innerHTML = `<span class="section-count-label">${sectionLabels[sectionName] || sectionName}</span><span class="section-count-num">${tasks.length}</span>`;
+    section.appendChild(countBadge);
 
     section.addEventListener('dragover', e => {
         e.preventDefault();
@@ -395,15 +720,14 @@ function createSectionEl(sectionName, tasks) {
             }
         }
 
+        saveCustomOrder();
+
         // Ensure re-sort button is visible
         if (!tasksContainer.querySelector('.resort-btn')) {
             const btn = document.createElement('button');
             btn.className = 'resort-btn';
             btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
-            btn.addEventListener('click', () => {
-                customOrder = null;
-                displayTasks(currentTasksCache);
-            });
+            btn.addEventListener('click', async () => { customOrder = null; await saveCustomOrder(); displayTasks(currentTasksCache); });
             tasksContainer.insertBefore(btn, tasksContainer.firstChild);
         }
 
@@ -425,7 +749,7 @@ function createTaskCard(task, sectionName) {
     const progressPercent = Math.round((progress / 3) * 100);
 
     const card = document.createElement('div');
-    card.className = 'task-card';
+    card.className = 'task-card' + (task.important ? ' important' : '') + (progress === 3 ? ' progress-complete' : '');
     card.dataset.taskId = task.id;
     card.dataset.section = sectionName;
     card.draggable = true;
@@ -550,11 +874,13 @@ function createTaskCard(task, sectionName) {
                     customOrder[sectionName] = [...srcSection.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
                 }
             }
+            saveCustomOrder();
+
             if (!tasksContainer.querySelector('.resort-btn')) {
                 const btn = document.createElement('button');
                 btn.className = 'resort-btn';
                 btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
-                btn.addEventListener('click', () => { customOrder = null; displayTasks(currentTasksCache); });
+                btn.addEventListener('click', async () => { customOrder = null; await saveCustomOrder(); displayTasks(currentTasksCache); });
                 tasksContainer.insertBefore(btn, tasksContainer.firstChild);
             }
         }
@@ -591,6 +917,18 @@ function createTaskCard(task, sectionName) {
         badge.textContent = dueInfo.badge;
         header.appendChild(badge);
     }
+
+    const importantBtn = document.createElement('button');
+    importantBtn.className = 'important-btn' + (task.important ? ' active' : '');
+    importantBtn.title = task.important ? 'Wichtig (klicken zum Entfernen)' : 'Als wichtig markieren';
+    const importantIcon = document.createElement('span');
+    importantIcon.className = 'material-symbols-outlined' + (task.important ? ' ms-filled' : '');
+    importantIcon.style.fontSize = '20px';
+    importantIcon.textContent = 'star';
+    importantBtn.appendChild(importantIcon);
+    importantBtn.addEventListener('click', e => { e.stopPropagation(); toggleImportant(task.id); });
+    header.appendChild(importantBtn);
+
     card.appendChild(header);
 
     // Progress text
@@ -603,14 +941,29 @@ function createTaskCard(task, sectionName) {
     }
     card.appendChild(progressText);
 
-    // Progress boxes
+    // Progress boxes / bar
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
-    for (let i = 1; i <= 3; i++) {
-        const box = document.createElement('div');
-        box.className = 'progress-box' + (progress >= i ? ' filled' : '');
-        box.addEventListener('click', () => updateProgress(task.id, i));
-        progressContainer.appendChild(box);
+    if (currentSettings.progressStyle === 'bar') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'progress-bar-wrapper';
+        const fill = document.createElement('div');
+        fill.className = 'progress-bar-fill';
+        fill.style.width = progressPercent + '%';
+        wrapper.appendChild(fill);
+        wrapper.addEventListener('click', e => {
+            const pct = (e.clientX - wrapper.getBoundingClientRect().left) / wrapper.offsetWidth;
+            const zone = pct < 0.34 ? 1 : pct < 0.67 ? 2 : 3;
+            updateProgress(task.id, zone);
+        });
+        progressContainer.appendChild(wrapper);
+    } else {
+        for (let i = 1; i <= 3; i++) {
+            const box = document.createElement('div');
+            box.className = 'progress-box' + (progress >= i ? ' filled' : '');
+            box.addEventListener('click', () => updateProgress(task.id, i));
+            progressContainer.appendChild(box);
+        }
     }
     card.appendChild(progressContainer);
 
@@ -643,6 +996,13 @@ function createTaskCard(task, sectionName) {
     footer.appendChild(deleteBtn);
 
     card.appendChild(footer);
+
+    const createdEl = document.createElement('div');
+    createdEl.className = 'task-created-date';
+    const createdStr = task.createdAt ? task.createdAt.split('T')[0] : null;
+    createdEl.textContent = 'Erstellt: ' + (createdStr ? formatDate(createdStr) : '–');
+    card.appendChild(createdEl);
+
     return card;
 }
 
@@ -662,7 +1022,7 @@ function showCompletionModal(taskId) {
 
     newDone.addEventListener('click', () => {
         modal.classList.remove('active');
-        launchConfetti();
+        if (currentSettings.showConfetti) launchConfetti();
     });
 
     newDel.addEventListener('click', async () => {
@@ -768,7 +1128,7 @@ window.postponeTask = async function(taskId) {
 window.deleteTask = async function(taskId, skipConfirm = false) {
     if (!currentUser) return;
 
-    if (!skipConfirm && !confirm('Möchtest du diese Aufgabe wirklich löschen?')) return;
+    if (!skipConfirm && currentSettings.confirmDelete && !confirm('Möchtest du diese Aufgabe wirklich löschen?')) return;
 
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
@@ -811,6 +1171,7 @@ function getTodayString() {
 function formatDate(dateString) {
     if (!dateString) return '';
     const [y, m, d] = dateString.split('-').map(Number);
+    if (currentSettings.dateFormat === 'iso') return dateString;
     return new Date(y, m - 1, d).toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
