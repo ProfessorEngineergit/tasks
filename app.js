@@ -61,8 +61,8 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 
 document.addEventListener('touchmove', e => {
-    // Never block while a card is being dragged
-    if (compactDrag.active) return;
+    // Prevent page scroll while a card is being dragged
+    if (compactDrag.active) { e.preventDefault(); return; }
 
     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
     const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
@@ -342,23 +342,23 @@ function createTaskCard(task, sectionName) {
     const progressPercent = Math.round((progress / 3) * 100);
 
     const card = document.createElement('div');
-    card.className = 'task-card';
+    card.className = 'task-card' + (task.important ? ' important' : '');
     card.dataset.taskId = task.id;
     card.dataset.section = sectionName;
     card.draggable = false;
 
-    // Long-press handler for compact drag
-    card.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
+    // Long-press handler for compact drag (Pointer Events = works for both mouse & touch)
+    card.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (e.target.closest('button, .progress-box')) return;
-        // Prevent text selection during hold
-        e.preventDefault();
+        // Prevent text selection on desktop during hold; touch relies on CSS user-select
+        if (e.pointerType === 'mouse') e.preventDefault();
 
         const startX = e.clientX;
         const startY = e.clientY;
 
-        const onEarlyMove = (me) => {
-            if (Math.abs(me.clientX - startX) > 8 || Math.abs(me.clientY - startY) > 8) {
+        const onEarlyMove = (pe) => {
+            if (Math.abs(pe.clientX - startX) > 8 || Math.abs(pe.clientY - startY) > 8) {
                 clearTimeout(longPressTimer);
                 earlyCleanup();
             }
@@ -370,8 +370,9 @@ function createTaskCard(task, sectionName) {
         };
 
         const earlyCleanup = () => {
-            document.removeEventListener('mousemove', onEarlyMove);
-            document.removeEventListener('mouseup', onEarlyUp);
+            document.removeEventListener('pointermove', onEarlyMove);
+            document.removeEventListener('pointerup', onEarlyUp);
+            document.removeEventListener('pointercancel', onEarlyUp);
         };
 
         longPressTimer = setTimeout(() => {
@@ -379,8 +380,9 @@ function createTaskCard(task, sectionName) {
             startCompactDrag(card, sectionName, startX, startY);
         }, LONG_PRESS_MS);
 
-        document.addEventListener('mousemove', onEarlyMove);
-        document.addEventListener('mouseup', onEarlyUp);
+        document.addEventListener('pointermove', onEarlyMove);
+        document.addEventListener('pointerup', onEarlyUp);
+        document.addEventListener('pointercancel', onEarlyUp);
     });
 
     // Header
@@ -434,6 +436,12 @@ function createTaskCard(task, sectionName) {
         repeatBadge.innerHTML = '<span class="material-symbols-outlined ms-green" style="font-size:15px">autorenew</span> ' + escapeHtml(repeatLabel);
         footerLeft.appendChild(repeatBadge);
     }
+
+    const importantBtn = document.createElement('button');
+    importantBtn.className = 'important-btn' + (task.important ? ' active' : '');
+    importantBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">priority_high</span> Wichtig';
+    importantBtn.addEventListener('click', () => toggleImportant(task.id, task.important));
+    footerLeft.appendChild(importantBtn);
 
     const postponeBtn = document.createElement('button');
     postponeBtn.className = 'postpone-btn';
@@ -499,8 +507,9 @@ function startCompactDrag(card, sectionName, mouseX, mouseY) {
         compactDrag.scrollRAF = requestAnimationFrame(scrollTick);
     })();
 
-    document.addEventListener('mousemove', onCompactDragMove);
-    document.addEventListener('mouseup', onCompactDragEnd);
+    document.addEventListener('pointermove', onCompactDragMove);
+    document.addEventListener('pointerup', onCompactDragEnd);
+    document.addEventListener('pointercancel', onCompactDragEnd);
 }
 
 function onCompactDragMove(e) {
@@ -586,8 +595,9 @@ function onCompactDragEnd() {
     setTimeout(() => document.body.classList.remove('compact-mode'), 150);
 
     // Remove listeners
-    document.removeEventListener('mousemove', onCompactDragMove);
-    document.removeEventListener('mouseup', onCompactDragEnd);
+    document.removeEventListener('pointermove', onCompactDragMove);
+    document.removeEventListener('pointerup', onCompactDragEnd);
+    document.removeEventListener('pointercancel', onCompactDragEnd);
 
     // Reset state
     compactDrag = {
@@ -712,6 +722,21 @@ window.postponeTask = async function(taskId) {
     } catch (error) {
         console.error('Error postponing task:', error);
         alert('Fehler beim Verschieben der Aufgabe');
+    }
+};
+
+// ── Toggle task important flag ─────────────────────────────────────────────
+window.toggleImportant = async function(taskId, currentImportant) {
+    if (!currentUser) return;
+    try {
+        const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
+        await updateDoc(taskRef, {
+            important: !currentImportant,
+            updatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error toggling important:', error);
+        alert('Fehler beim Markieren der Aufgabe');
     }
 };
 
