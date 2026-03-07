@@ -6,9 +6,27 @@
     <title>tasks</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800&family=Audiowide&family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/nasalization" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <style>
+        :root {
+            --accent: #00ff88;
+            --accent-rgb: 0, 255, 136;
+            --font-ui: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-size-base: 16px;
+            --card-radius: 20px;
+            --card-border-w: 2px;
+            --card-border-style: solid;
+            --card-bg: #0a0a0a;
+            --card-spacing: 16px;
+            --title-size: 20px;
+            --bg: #000000;
+            --progress-box-radius: 12px;
+            --filled-symbol: '✓';
+            --pulse-duration: 2s;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -355,7 +373,7 @@
         }
         
         .progress-box.filled::after {
-            content: '✓';
+            content: var(--filled-symbol, '✓');
             font-size: 28px;
             font-weight: 800;
         }
@@ -751,6 +769,513 @@
         .github-link:hover {
             color: #00ff88;
         }
+
+/* ── CSS-variable-driven overrides ─────────────────────────────── */
+body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+}
+.task-card {
+    border-radius: var(--card-radius);
+    border-width: var(--card-border-w);
+    border-style: var(--card-border-style, solid);
+    margin-bottom: var(--card-spacing);
+    background: var(--card-bg);
+    position: relative;
+}
+.task-title { font-size: var(--title-size); }
+.progress-box { border-radius: var(--progress-box-radius, 12px); }
+.welcome, .task-form h2, .tasks-list h2 { color: var(--accent); }
+.ms-green { color: var(--accent); }
+#login-btn { background: var(--accent); box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3); }
+#add-task-btn { background: var(--accent); box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3); }
+.modal-done-btn { background: var(--accent); box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3); }
+.postpone-btn { background: var(--accent); }
+.postpone-btn:hover { background: var(--accent); filter: brightness(0.88); }
+.task-card:hover { border-color: var(--accent); box-shadow: 0 12px 32px rgba(var(--accent-rgb), 0.2); }
+.progress-box.filled { background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.4); }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1); }
+.date-separator { background: linear-gradient(to right, transparent, var(--accent), transparent); }
+.date-separator.long-term { background: linear-gradient(to right, transparent, var(--accent), transparent); }
+.date-separator.long-term span { color: var(--accent); border-color: var(--accent); }
+.modal-content { border-color: var(--accent); }
+.modal-icon .material-symbols-outlined { color: var(--accent); }
+.resort-btn { color: var(--accent); border-color: var(--accent); }
+.resort-btn:hover { background: rgba(var(--accent-rgb), 0.12); }
+.drag-placeholder { background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.08), transparent); border-color: rgba(var(--accent-rgb), 0.45); }
+.lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+.progress-text.complete { color: var(--accent); }
+
+/* ── Important card ─────────────────────────────────────────────── */
+.task-card.important::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border: 4px dashed var(--accent);
+    border-radius: calc(var(--card-radius) - 6px);
+    pointer-events: none;
+    animation: important-pulse var(--pulse-duration, 2s) ease-in-out infinite;
+    z-index: 0;
+}
+@keyframes important-pulse {
+    0%, 100% { inset: 6px; opacity: 1; }
+    50% { inset: 11px; opacity: 0.5; }
+}
+.ms-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.important-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #444444;
+    padding: 2px 4px;
+    margin-left: 6px;
+    border-radius: 6px;
+    transition: color 0.2s ease, background 0.2s ease;
+    flex-shrink: 0;
+    line-height: 1;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+}
+.important-btn:hover { color: var(--accent); background: rgba(var(--accent-rgb), 0.1); }
+.important-btn.active { color: var(--accent); }
+.important-btn.active:hover { background: rgba(var(--accent-rgb), 0.15); }
+
+/* ── Progress bar style ─────────────────────────────────────────── */
+.progress-bar-wrapper {
+    width: 100%;
+    height: 36px;
+    background: #1a1a1a;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid #2a2a2a;
+    position: relative;
+    transition: border-color 0.2s;
+}
+.progress-bar-wrapper:hover { border-color: var(--accent); }
+.progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 8px;
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.5);
+}
+
+/* ── Created date ───────────────────────────────────────────────── */
+.task-created-date {
+    display: none;
+    font-size: 11px;
+    color: #444;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #1a1a1a;
+}
+.pref-show-created .task-created-date { display: block; }
+
+/* ── Section count badge ────────────────────────────────────────── */
+.section-count-badge {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+.pref-section-count .section-count-badge { display: flex; }
+.section-count-num {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+/* ── Body preference classes ────────────────────────────────────── */
+.pref-no-hover-lift .task-card:hover { transform: none; }
+.pref-no-glow .task-card:hover { box-shadow: none; }
+.pref-no-progress-text .progress-text { display: none; }
+.pref-no-repeat-badge .task-repeat-badge { display: none; }
+.pref-no-postpone .postpone-btn { display: none; }
+.pref-no-due-badge .task-due-badge { display: none; }
+.pref-urgent-red [data-section="urgent"] .task-card { border-color: rgba(255,68,68,0.35); background: rgba(20,0,0,0.6); }
+.pref-focus-mode .task-card.progress-complete { opacity: 0.35; }
+.pref-compact .task-card { padding: 14px 18px; }
+.pref-compact .progress-box { height: 42px; }
+.pref-glass .task-card { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); background: rgba(10,10,10,0.65); }
+.pref-bg-dots { background-image: radial-gradient(#1e1e1e 1.5px, transparent 1.5px); background-size: 26px 26px; }
+.pref-bg-grid { background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 32px 32px; }
+.pref-anim-slow .task-card, .pref-anim-slow .progress-box, .pref-anim-slow .modal-content { transition-duration: 0.7s !important; animation-duration: 3s !important; }
+.pref-anim-fast .task-card, .pref-anim-fast .progress-box { transition-duration: 0.08s !important; animation-duration: 0.3s !important; }
+.pref-anim-off *, .pref-anim-off *::before, .pref-anim-off *::after { animation: none !important; transition: none !important; }
+
+/* ── Neon glow mode ─────────────────────────────────────────────── */
+.pref-neon .welcome, .pref-neon .task-form h2, .pref-neon .tasks-list h2 {
+    text-shadow: 0 0 18px var(--accent), 0 0 36px rgba(var(--accent-rgb), 0.4);
+}
+.pref-neon .task-card:hover {
+    box-shadow: 0 0 36px rgba(var(--accent-rgb), 0.55), 0 12px 32px rgba(var(--accent-rgb), 0.25) !important;
+}
+.pref-neon .progress-box.filled {
+    box-shadow: 0 0 20px var(--accent), 0 4px 16px rgba(var(--accent-rgb), 0.6) !important;
+}
+.pref-neon .important-btn.active { text-shadow: 0 0 10px var(--accent); }
+
+/* ── CRT scanlines ──────────────────────────────────────────────── */
+.pref-scanlines::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.07) 0px, rgba(0,0,0,0.07) 1px, transparent 1px, transparent 3px);
+    pointer-events: none;
+    z-index: 9998;
+}
+
+/* ── Glow intensity ─────────────────────────────────────────────── */
+.pref-glow-off .task-card:hover { box-shadow: none !important; }
+.pref-glow-off .progress-box.filled { box-shadow: none !important; }
+.pref-glow-dim .task-card:hover { box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.1) !important; }
+.pref-glow-intense .task-card:hover {
+    box-shadow: 0 0 44px rgba(var(--accent-rgb), 0.55), 0 20px 50px rgba(var(--accent-rgb), 0.3) !important;
+}
+.pref-glow-intense .progress-box.filled {
+    box-shadow: 0 0 28px var(--accent), 0 0 56px rgba(var(--accent-rgb), 0.45) !important;
+}
+
+/* ── Urgent blink ───────────────────────────────────────────────── */
+@keyframes urgent-pulse {
+    0%, 100% { border-color: rgba(255,68,68,0.3); }
+    50% { border-color: rgba(255,68,68,0.95); box-shadow: 0 0 22px rgba(255,68,68,0.45); }
+}
+.pref-urgent-blink [data-section="urgent"] .task-card:not(.dragging) {
+    animation: urgent-pulse 2s ease-in-out infinite;
+}
+
+/* ── 3D tilt on hover ───────────────────────────────────────────── */
+.pref-tilt .task-card { transform-style: preserve-3d; }
+.pref-tilt .task-card:hover { transform: translateY(-4px) perspective(600px) rotateX(2deg) !important; }
+
+/* ── Card entry animations ──────────────────────────────────────── */
+@keyframes entry-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes entry-slide { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.pref-entry-pop .task-card { animation: pop 0.35s ease; }
+.pref-entry-fade .task-card { animation: entry-fade 0.4s ease; }
+.pref-entry-slide .task-card { animation: entry-slide 0.32s ease; }
+
+/* ── Due-date warning badge ─────────────────────────────────────── */
+.task-due-badge.warning { background: rgba(255,170,0,0.18); color: #ffaa00; }
+
+/* ── Matrix rain canvas ─────────────────────────────────────────── */
+#matrix-canvas {
+    display: none;
+    position: fixed;
+    inset: 0;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: -1;
+}
+.pref-matrix #matrix-canvas { display: block; }
+
+/* ── Last-updated timestamp ─────────────────────────────────────── */
+.task-updated-date {
+    display: none;
+    font-size: 11px;
+    color: #444;
+    margin-top: 2px;
+}
+.pref-show-updated .task-updated-date { display: block; }
+
+/* ── Undo-delete toast ──────────────────────────────────────────── */
+.undo-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    border: 2px solid var(--accent);
+    color: #ddd;
+    padding: 12px 20px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 9990;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-ui);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    animation: panel-up 0.25s ease;
+    white-space: nowrap;
+}
+.undo-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    touch-action: manipulation;
+}
+.undo-btn:hover { filter: brightness(0.88); }
+.settings-btn {
+    background: transparent;
+    color: #444444;
+    border: 2px solid #333333;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+.settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Settings overlay ───────────────────────────────────────────── */
+.settings-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9500;
+    justify-content: center;
+    align-items: flex-end;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.settings-overlay.active { display: flex; }
+.settings-panel {
+    background: #060606;
+    border: 2px solid #1a1a1a;
+    border-bottom: none;
+    border-radius: 28px 28px 0 0;
+    width: 100%;
+    max-width: 640px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    animation: panel-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+}
+@keyframes panel-up {
+    0% { transform: translateY(100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px 0;
+    flex-shrink: 0;
+}
+.settings-header h3 {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.settings-close-btn {
+    background: transparent;
+    border: 2px solid #2a2a2a;
+    color: #888;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+.settings-close-btn:hover { border-color: #555; color: #fff; }
+.settings-tabs {
+    display: flex;
+    gap: 0;
+    padding: 20px 28px 0;
+    border-bottom: 2px solid #1a1a1a;
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab-btn {
+    background: transparent;
+    border: none;
+    color: #555;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    touch-action: manipulation;
+}
+.settings-tab-btn:hover { color: #aaa; }
+.settings-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.settings-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0 28px;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a transparent;
+}
+.settings-body::-webkit-scrollbar { width: 4px; }
+.settings-body::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+.settings-tab-pane { display: none; padding: 20px 0; }
+.settings-tab-pane.active { display: block; }
+.settings-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 20px 0 10px;
+}
+.settings-group-title:first-child { margin-top: 0; }
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid #0f0f0f;
+    gap: 16px;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label { flex: 1; min-width: 0; }
+.settings-label > span:first-child { display: block; font-size: 14px; font-weight: 600; color: #ddd; }
+.settings-hint { display: block; font-size: 12px; color: #555; margin-top: 2px; }
+.settings-select {
+    background: #0e0e0e;
+    color: #ddd;
+    border: 2px solid #222;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    min-width: 150px;
+    max-width: 180px;
+    transition: border-color 0.2s;
+    flex-shrink: 0;
+}
+.settings-select:focus { outline: none; border-color: var(--accent); }
+.range-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.settings-range {
+    width: 110px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.range-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+}
+.color-row { align-items: flex-start; padding: 16px 0; }
+.color-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex-shrink: 0; }
+.color-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.color-preset {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.color-preset:hover { transform: scale(1.2); border-color: #fff; }
+.settings-color-input {
+    width: 40px;
+    height: 30px;
+    border: 2px solid #222;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 2px;
+    background: #0e0e0e;
+}
+.toggle {
+    width: 48px;
+    height: 26px;
+    background: #222;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.25s;
+    flex-shrink: 0;
+    border: 2px solid #333;
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #555;
+    border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s;
+}
+.toggle.on .toggle-thumb { transform: translateX(22px); background: #000; }
+.settings-footer {
+    padding: 16px 28px 28px;
+    border-top: 1px solid #111;
+    flex-shrink: 0;
+}
+.settings-reset-btn {
+    background: transparent;
+    color: #555;
+    border: 2px solid #222;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    touch-action: manipulation;
+}
+.settings-reset-btn:hover { color: #ff4444; border-color: #ff4444; }
+
+/* Task count badge in header */
+#task-count-badge {
+    display: none;
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-left: 10px;
+    vertical-align: middle;
+}
     </style>
 </head>
 <body>
@@ -775,6 +1300,9 @@
                 <div class="header-actions">
                     <button id="lock-btn" class="lock-btn" title="Drag-Kategorien sperren">
                         <span class="material-symbols-outlined" style="font-size:20px;">lock</span>
+                    </button>
+                    <button id="settings-btn" class="settings-btn" title="Einstellungen">
+                        <span class="material-symbols-outlined" style="font-size:20px;">settings</span>
                     </button>
                     <button id="logout-btn">Logout</button>
                 </div>
@@ -807,7 +1335,7 @@
 
             <!-- Tasks List -->
             <div class="tasks-list">
-                <h2>Meine Aufgaben</h2>
+                <h2>Meine Aufgaben <span id="task-count-badge"></span></h2>
                 <div id="tasks-container">
                     <div class="loading">Lade Aufgaben...</div>
                 </div>
@@ -823,6 +1351,511 @@
                 Link zum Repo
             </a>
         </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="settings-overlay">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h3><span class="material-symbols-outlined" style="font-size:22px">settings</span> Einstellungen</h3>
+                <button id="settings-close-btn" class="settings-close-btn">
+                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <div class="settings-tabs">
+                <button class="settings-tab-btn active" data-tab="appearance">
+                    <span class="material-symbols-outlined" style="font-size:16px">palette</span> Aussehen
+                </button>
+                <button class="settings-tab-btn" data-tab="cards">
+                    <span class="material-symbols-outlined" style="font-size:16px">style</span> Karten
+                </button>
+                <button class="settings-tab-btn" data-tab="behavior">
+                    <span class="material-symbols-outlined" style="font-size:16px">tune</span> Verhalten
+                </button>
+                <button class="settings-tab-btn" data-tab="labs">
+                    <span class="material-symbols-outlined" style="font-size:16px">science</span> Labs
+                </button>
+            </div>
+            <div class="settings-body">
+
+                <!-- ── Appearance ── -->
+                <div class="settings-tab-pane active" data-tab="appearance">
+                    <div class="settings-group-title">Schrift</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Schriftart</span>
+                            <span class="settings-hint">Interface-Schriftart der App</span>
+                        </div>
+                        <select id="s-fontFamily" class="settings-select">
+                            <option value="Exo 2">Exo 2 (Standard)</option>
+                            <option value="Orbitron">Orbitron (Sci-Fi)</option>
+                            <option value="Audiowide">Audiowide</option>
+                            <option value="Nasalization">Nasalization</option>
+                            <option value="Rajdhani">Rajdhani</option>
+                            <option value="Inter">Inter (Clean)</option>
+                            <option value="Share Tech Mono">Share Tech Mono</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                            <option value="Press Start 2P">Press Start 2P</option>
+                            <option value="VT323">VT323 (Terminal)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Schriftgröße</span>
+                            <span class="settings-hint">Basis-Textgröße</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-fontSize" class="settings-range" min="13" max="19" step="1" value="16">
+                            <span class="range-val" id="s-fontSize-val">16px</span>
+                        </div>
+                    </div>
+                    <div class="settings-group-title">Farbe &amp; Stil</div>
+                    <div class="settings-row color-row">
+                        <div class="settings-label">
+                            <span>Akzentfarbe</span>
+                            <span class="settings-hint">Hauptfarbe der gesamten App</span>
+                        </div>
+                        <div class="color-controls">
+                            <div class="color-presets">
+                                <button class="color-preset" data-color="#00ff88" style="background:#00ff88" title="Neon-Grün"></button>
+                                <button class="color-preset" data-color="#00aaff" style="background:#00aaff" title="Blau"></button>
+                                <button class="color-preset" data-color="#aa44ff" style="background:#aa44ff" title="Lila"></button>
+                                <button class="color-preset" data-color="#ff6644" style="background:#ff6644" title="Orange"></button>
+                                <button class="color-preset" data-color="#ffcc00" style="background:#ffcc00" title="Gold"></button>
+                                <button class="color-preset" data-color="#ff2266" style="background:#ff2266" title="Pink"></button>
+                            </div>
+                            <input type="color" id="s-accentColor" class="settings-color-input" value="#00ff88">
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Karten-Hintergrund</span>
+                            <span class="settings-hint">Hintergrundfarbe der Aufgabenkarten</span>
+                        </div>
+                        <select id="s-cardBackground" class="settings-select">
+                            <option value="jet">Jet (#0a0a0a)</option>
+                            <option value="dark">Dunkel (#111111)</option>
+                            <option value="deep">Tief (#050505)</option>
+                            <option value="charcoal">Anthrazit (#141414)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Karten-Abrundung</span>
+                            <span class="settings-hint">Radius der Kartenecken</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-cardRadius" class="settings-range" min="0" max="28" step="2" value="20">
+                            <span class="range-val" id="s-cardRadius-val">20px</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Rahmenbreite</span>
+                            <span class="settings-hint">Stärke des Kartenrahmens</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-borderWidth" class="settings-range" min="0" max="4" step="1" value="2">
+                            <span class="range-val" id="s-borderWidth-val">2px</span>
+                        </div>
+                    </div>
+                    <div class="settings-group-title">Effekte</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Animationsgeschwindigkeit</span>
+                            <span class="settings-hint">Geschwindigkeit aller Übergänge</span>
+                        </div>
+                        <select id="s-animationSpeed" class="settings-select">
+                            <option value="normal">Normal</option>
+                            <option value="slow">Langsam</option>
+                            <option value="fast">Schnell</option>
+                            <option value="off">Aus</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Hintergrundmuster</span>
+                            <span class="settings-hint">Dezentes Muster hinter den Karten</span>
+                        </div>
+                        <select id="s-backgroundPattern" class="settings-select">
+                            <option value="none">Keins</option>
+                            <option value="dots">Punkte</option>
+                            <option value="grid">Raster</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Karten-Leuchteffekt</span>
+                            <span class="settings-hint">Grüner Glow beim Drüberfahren</span>
+                        </div>
+                        <div class="toggle on" id="s-cardGlow"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Hover-Heben</span>
+                            <span class="settings-hint">Karten heben sich beim Hover</span>
+                        </div>
+                        <div class="toggle on" id="s-hoverLift"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Form &amp; Rahmen</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Rahmenstil</span>
+                            <span class="settings-hint">Stil des Kartenrahmens</span>
+                        </div>
+                        <select id="s-borderStyle" class="settings-select">
+                            <option value="solid">Durchgehend</option>
+                            <option value="dashed">Gestrichelt</option>
+                            <option value="double">Doppelt</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fortschritt-Box-Form</span>
+                            <span class="settings-hint">Form der Fortschrittsboxen</span>
+                        </div>
+                        <select id="s-progressBoxShape" class="settings-select">
+                            <option value="rounded">Abgerundet</option>
+                            <option value="square">Eckig</option>
+                            <option value="pill">Pille</option>
+                        </select>
+                    </div>
+                    <div class="settings-group-title">Spezialeffekte</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Leuchtintensität</span>
+                            <span class="settings-hint">Stärke aller Glow-Effekte</span>
+                        </div>
+                        <select id="s-accentGlow" class="settings-select">
+                            <option value="normal">Normal</option>
+                            <option value="dim">Schwach</option>
+                            <option value="intense">Intensiv</option>
+                            <option value="off">Aus</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Neon-Modus</span>
+                            <span class="settings-hint">Extra Neon-Glow auf Text &amp; Elementen</span>
+                        </div>
+                        <div class="toggle" id="s-neonGlow"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>CRT-Scanlines</span>
+                            <span class="settings-hint">Retro-Bildröhren-Overlay</span>
+                        </div>
+                        <div class="toggle" id="s-scanlines"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>3D-Tilt beim Hover</span>
+                            <span class="settings-hint">Karten kippen beim Hover leicht in 3D</span>
+                        </div>
+                        <div class="toggle" id="s-cardTiltOnHover"><div class="toggle-thumb"></div></div>
+                    </div>
+                </div>
+
+                <!-- ── Cards ── -->
+                <div class="settings-tab-pane" data-tab="cards">
+                    <div class="settings-group-title">Fortschritt</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fortschrittsanzeige</span>
+                            <span class="settings-hint">Wie Fortschritt dargestellt wird</span>
+                        </div>
+                        <select id="s-progressStyle" class="settings-select">
+                            <option value="boxes">Drei Boxen</option>
+                            <option value="bar">Balken</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fortschrittstext</span>
+                            <span class="settings-hint">Prozentanzeige unter dem Fortschritt</span>
+                        </div>
+                        <div class="toggle on" id="s-showProgressText"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Badges &amp; Buttons</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fälligkeits-Badge</span>
+                            <span class="settings-hint">Fälligkeitsdatum auf Karten</span>
+                        </div>
+                        <div class="toggle on" id="s-showDueBadge"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Wiederholungs-Badge</span>
+                            <span class="settings-hint">Zeigt den Wiederholungstyp</span>
+                        </div>
+                        <div class="toggle on" id="s-showRepeatBadge"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>+1 Tag Button</span>
+                            <span class="settings-hint">Aufgabe um einen Tag verschieben</span>
+                        </div>
+                        <div class="toggle on" id="s-showPostponeBtn"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Layout</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Kartenabstand</span>
+                            <span class="settings-hint">Abstand zwischen den Karten</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-cardSpacing" class="settings-range" min="8" max="24" step="2" value="16">
+                            <span class="range-val" id="s-cardSpacing-val">16px</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Titelgröße</span>
+                            <span class="settings-hint">Schriftgröße der Aufgabentitel</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-taskTitleSize" class="settings-range" min="16" max="26" step="1" value="20">
+                            <span class="range-val" id="s-taskTitleSize-val">20px</span>
+                        </div>
+                    </div>
+                    <div class="settings-group-title">Zusatzinfos</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Erstelldatum anzeigen</span>
+                            <span class="settings-hint">Wann die Aufgabe erstellt wurde</span>
+                        </div>
+                        <div class="toggle" id="s-showCreatedDate"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Überfällige Karten rot</span>
+                            <span class="settings-hint">Roter Schimmer für überfällige Aufgaben</span>
+                        </div>
+                        <div class="toggle" id="s-urgentRedTint"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Fortschritts-Symbol</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Symbol in gefüllten Boxen</span>
+                            <span class="settings-hint">Zeichen in ausgefüllten Fortschrittsboxen</span>
+                        </div>
+                        <select id="s-filledBoxSymbol" class="settings-select">
+                            <option value="✓">✓  Haken</option>
+                            <option value="✦">✦  Stern</option>
+                            <option value="★">★  Stern (fest)</option>
+                            <option value="▓">▓  Block</option>
+                            <option value="⚡">⚡ Blitz</option>
+                            <option value="●">●  Punkt</option>
+                        </select>
+                    </div>
+                    <div class="settings-group-title">Wichtig-Animation</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Pulsgeschwindigkeit (★ Wichtig)</span>
+                            <span class="settings-hint">Tempo des gestrichelten Rahmens</span>
+                        </div>
+                        <select id="s-importantPulseSpeed" class="settings-select">
+                            <option value="slow">Langsam (3.5s)</option>
+                            <option value="medium">Mittel (2s)</option>
+                            <option value="fast">Schnell (0.9s)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Überfällige Karten blinken</span>
+                            <span class="settings-hint">Roter Puls auf überfälligen Karten</span>
+                        </div>
+                        <div class="toggle" id="s-urgentBlink"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Eingangsanimation</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Karten-Erscheinungseffekt</span>
+                            <span class="settings-hint">Wie Karten beim Laden erscheinen</span>
+                        </div>
+                        <select id="s-cardEntryAnim" class="settings-select">
+                            <option value="pop">Pop</option>
+                            <option value="fade">Einblenden</option>
+                            <option value="slide">Einschleichen</option>
+                            <option value="none">Kein Effekt</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ── Behavior ── -->
+                <div class="settings-tab-pane" data-tab="behavior">
+                    <div class="settings-group-title">Aktionen</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Löschen bestätigen</span>
+                            <span class="settings-hint">Sicherheitsabfrage vor dem Löschen</span>
+                        </div>
+                        <div class="toggle on" id="s-confirmDelete"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Konfetti bei Abschluss</span>
+                            <span class="settings-hint">Feiereffekte beim Abschließen</span>
+                        </div>
+                        <div class="toggle on" id="s-showConfetti"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Sortierung &amp; Anzeige</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Aufgabenzahl im Header</span>
+                            <span class="settings-hint">Gesamtzahl hinter dem Titel</span>
+                        </div>
+                        <div class="toggle" id="s-showTaskCount"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Neueste zuerst</span>
+                            <span class="settings-hint">Neue Tasks oben einordnen</span>
+                        </div>
+                        <div class="toggle" id="s-autoSortNew"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Datum &amp; Wiederholung</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Datumsformat</span>
+                            <span class="settings-hint">Wie Daten angezeigt werden</span>
+                        </div>
+                        <select id="s-dateFormat" class="settings-select">
+                            <option value="de">Deutsch (01.01.2025)</option>
+                            <option value="iso">ISO (2025-01-01)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Standard-Wiederholung</span>
+                            <span class="settings-hint">Vorausgewählter Wiederholungstyp</span>
+                        </div>
+                        <select id="s-defaultRepeatType" class="settings-select">
+                            <option value="none">Keine</option>
+                            <option value="daily">Täglich</option>
+                            <option value="every2days">Alle 2 Tage</option>
+                            <option value="every3days">Alle 3 Tage</option>
+                            <option value="weekly">Wöchentlich</option>
+                            <option value="monthly">Monatlich</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Erster Wochentag</span>
+                            <span class="settings-hint">Referenztag für Kalenderlogik</span>
+                        </div>
+                        <select id="s-firstDayOfWeek" class="settings-select">
+                            <option value="monday">Montag</option>
+                            <option value="sunday">Sonntag</option>
+                        </select>
+                    </div>
+                    <div class="settings-group-title">Drag &amp; Drop</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Drag zwischen Kategorien</span>
+                            <span class="settings-hint">Standardmäßig entsperrt</span>
+                        </div>
+                        <div class="toggle" id="s-crossDragDefault"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Sicherheit</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Lösch-Verzögerung (Undo)</span>
+                            <span class="settings-hint">3s-Countdown mit Rückgängig-Option</span>
+                        </div>
+                        <div class="toggle" id="s-deletionDelay"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Feedback</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Vibrations-Feedback</span>
+                            <span class="settings-hint">Haptisches Feedback beim Drag-Start</span>
+                        </div>
+                        <div class="toggle on" id="s-vibrationFeedback"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fälligkeits-Warnung</span>
+                            <span class="settings-hint">Tage im Voraus gelb hervorheben</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-dueDateWarningDays" class="settings-range" min="1" max="14" step="1" value="3">
+                            <span class="range-val" id="s-dueDateWarningDays-val">3d</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Labs ── -->
+                <div class="settings-tab-pane" data-tab="labs">
+                    <div class="settings-group-title" style="color: var(--accent)">🧪 Experimentelle Features</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fokus-Modus</span>
+                            <span class="settings-hint">Abgeschlossene Aufgaben stark abdunkeln</span>
+                        </div>
+                        <div class="toggle" id="s-focusMode"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Kompakt-Modus</span>
+                            <span class="settings-hint">Kleinere, engere Karten</span>
+                        </div>
+                        <div class="toggle" id="s-compactMode"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Umgekehrte Reihenfolge</span>
+                            <span class="settings-hint">Neueste Aufgaben innerhalb jeder Kategorie zuerst</span>
+                        </div>
+                        <div class="toggle" id="s-reverseSortOrder"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Glassmorphismus</span>
+                            <span class="settings-hint">Halbtransparente Karten mit Unschärfe</span>
+                        </div>
+                        <div class="toggle" id="s-glassmorphism"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Abschnitts-Zähler</span>
+                            <span class="settings-hint">Aufgabenanzahl pro Abschnitt einblenden</span>
+                        </div>
+                        <div class="toggle" id="s-sectionCountBadge"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title" style="color:#888;margin-top:20px">🤓 Nerdy Mode</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Hex-Fortschritt</span>
+                            <span class="settings-hint">0x00 / 0x55 / 0xAA / 0xFF statt Prozent</span>
+                        </div>
+                        <div class="toggle" id="s-hexProgress"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Matrix-Regen</span>
+                            <span class="settings-hint">Fallende Zeichen im Hintergrund</span>
+                        </div>
+                        <div class="toggle" id="s-matrixBg"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Letztes Update anzeigen</span>
+                            <span class="settings-hint">Timestamp der letzten Bearbeitung auf Karten</span>
+                        </div>
+                        <div class="toggle" id="s-showLastUpdated"><div class="toggle-thumb"></div></div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="settings-footer">
+                <button id="settings-reset-btn" class="settings-reset-btn">
+                    <span class="material-symbols-outlined" style="font-size:16px">restart_alt</span>
+                    Zurücksetzen
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Completion Modal – fixed overlay, lives outside the scroll container -->
@@ -848,6 +1881,9 @@
 
     <!-- canvas-confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <!-- Matrix rain canvas -->
+    <canvas id="matrix-canvas"></canvas>
 
     <!-- Firebase v9 SDK -->
     <script type="module" src="app.js"></script>
