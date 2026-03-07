@@ -106,9 +106,7 @@
             color: #00ff88;
             flex: 1;
             min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            word-break: break-word;
         }
 
         .header-actions {
@@ -254,11 +252,7 @@
             margin-bottom: 16px;
             transition: all 0.3s ease;
             -webkit-touch-callout: none;
-            user-select: text;
-        }
-
-        /* Prevent text selection while a drag is active */
-        body.dragging-active .task-card {
+            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -270,6 +264,17 @@
         }
 
         .task-card.drag-compact .task-header {
+            margin-bottom: 0;
+        }
+
+        /* Also compact all non-dragging cards while any drag is active */
+        body.dragging-active .task-card:not(.dragging) .progress-text,
+        body.dragging-active .task-card:not(.dragging) .progress-container,
+        body.dragging-active .task-card:not(.dragging) .task-footer {
+            display: none;
+        }
+
+        body.dragging-active .task-card:not(.dragging) .task-header {
             margin-bottom: 0;
         }
         
