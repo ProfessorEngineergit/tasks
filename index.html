@@ -17,10 +17,14 @@
             --font-size-base: 16px;
             --card-radius: 20px;
             --card-border-w: 2px;
+            --card-border-style: solid;
             --card-bg: #0a0a0a;
             --card-spacing: 16px;
             --title-size: 20px;
             --bg: #000000;
+            --progress-box-radius: 12px;
+            --filled-symbol: '✓';
+            --pulse-duration: 2s;
         }
 
         * {
@@ -369,7 +373,7 @@
         }
         
         .progress-box.filled::after {
-            content: '✓';
+            content: var(--filled-symbol, '✓');
             font-size: 28px;
             font-weight: 800;
         }
@@ -774,11 +778,13 @@ body {
 .task-card {
     border-radius: var(--card-radius);
     border-width: var(--card-border-w);
+    border-style: var(--card-border-style, solid);
     margin-bottom: var(--card-spacing);
     background: var(--card-bg);
     position: relative;
 }
 .task-title { font-size: var(--title-size); }
+.progress-box { border-radius: var(--progress-box-radius, 12px); }
 .welcome, .task-form h2, .tasks-list h2 { color: var(--accent); }
 .ms-green { color: var(--accent); }
 #login-btn { background: var(--accent); box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3); }
@@ -808,7 +814,7 @@ body {
     border: 4px dashed var(--accent);
     border-radius: calc(var(--card-radius) - 6px);
     pointer-events: none;
-    animation: important-pulse 2s ease-in-out infinite;
+    animation: important-pulse var(--pulse-duration, 2s) ease-in-out infinite;
     z-index: 0;
 }
 @keyframes important-pulse {
@@ -906,7 +912,117 @@ body {
 .pref-anim-fast .task-card, .pref-anim-fast .progress-box { transition-duration: 0.08s !important; animation-duration: 0.3s !important; }
 .pref-anim-off *, .pref-anim-off *::before, .pref-anim-off *::after { animation: none !important; transition: none !important; }
 
-/* ── Settings gear button ───────────────────────────────────────── */
+/* ── Neon glow mode ─────────────────────────────────────────────── */
+.pref-neon .welcome, .pref-neon .task-form h2, .pref-neon .tasks-list h2 {
+    text-shadow: 0 0 18px var(--accent), 0 0 36px rgba(var(--accent-rgb), 0.4);
+}
+.pref-neon .task-card:hover {
+    box-shadow: 0 0 36px rgba(var(--accent-rgb), 0.55), 0 12px 32px rgba(var(--accent-rgb), 0.25) !important;
+}
+.pref-neon .progress-box.filled {
+    box-shadow: 0 0 20px var(--accent), 0 4px 16px rgba(var(--accent-rgb), 0.6) !important;
+}
+.pref-neon .important-btn.active { text-shadow: 0 0 10px var(--accent); }
+
+/* ── CRT scanlines ──────────────────────────────────────────────── */
+.pref-scanlines::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.07) 0px, rgba(0,0,0,0.07) 1px, transparent 1px, transparent 3px);
+    pointer-events: none;
+    z-index: 9998;
+}
+
+/* ── Glow intensity ─────────────────────────────────────────────── */
+.pref-glow-off .task-card:hover { box-shadow: none !important; }
+.pref-glow-off .progress-box.filled { box-shadow: none !important; }
+.pref-glow-dim .task-card:hover { box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.1) !important; }
+.pref-glow-intense .task-card:hover {
+    box-shadow: 0 0 44px rgba(var(--accent-rgb), 0.55), 0 20px 50px rgba(var(--accent-rgb), 0.3) !important;
+}
+.pref-glow-intense .progress-box.filled {
+    box-shadow: 0 0 28px var(--accent), 0 0 56px rgba(var(--accent-rgb), 0.45) !important;
+}
+
+/* ── Urgent blink ───────────────────────────────────────────────── */
+@keyframes urgent-pulse {
+    0%, 100% { border-color: rgba(255,68,68,0.3); }
+    50% { border-color: rgba(255,68,68,0.95); box-shadow: 0 0 22px rgba(255,68,68,0.45); }
+}
+.pref-urgent-blink [data-section="urgent"] .task-card:not(.dragging) {
+    animation: urgent-pulse 2s ease-in-out infinite;
+}
+
+/* ── 3D tilt on hover ───────────────────────────────────────────── */
+.pref-tilt .task-card { transform-style: preserve-3d; }
+.pref-tilt .task-card:hover { transform: translateY(-4px) perspective(600px) rotateX(2deg) !important; }
+
+/* ── Card entry animations ──────────────────────────────────────── */
+@keyframes entry-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes entry-slide { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.pref-entry-pop .task-card { animation: pop 0.35s ease; }
+.pref-entry-fade .task-card { animation: entry-fade 0.4s ease; }
+.pref-entry-slide .task-card { animation: entry-slide 0.32s ease; }
+
+/* ── Due-date warning badge ─────────────────────────────────────── */
+.task-due-badge.warning { background: rgba(255,170,0,0.18); color: #ffaa00; }
+
+/* ── Matrix rain canvas ─────────────────────────────────────────── */
+#matrix-canvas {
+    display: none;
+    position: fixed;
+    inset: 0;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: -1;
+}
+.pref-matrix #matrix-canvas { display: block; }
+
+/* ── Last-updated timestamp ─────────────────────────────────────── */
+.task-updated-date {
+    display: none;
+    font-size: 11px;
+    color: #444;
+    margin-top: 2px;
+}
+.pref-show-updated .task-updated-date { display: block; }
+
+/* ── Undo-delete toast ──────────────────────────────────────────── */
+.undo-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    border: 2px solid var(--accent);
+    color: #ddd;
+    padding: 12px 20px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 9990;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-ui);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    animation: panel-up 0.25s ease;
+    white-space: nowrap;
+}
+.undo-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    touch-action: manipulation;
+}
+.undo-btn:hover { filter: brightness(0.88); }
 .settings-btn {
     background: transparent;
     color: #444444;
@@ -1381,6 +1497,63 @@ body {
                         </div>
                         <div class="toggle on" id="s-hoverLift"><div class="toggle-thumb"></div></div>
                     </div>
+                    <div class="settings-group-title">Form &amp; Rahmen</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Rahmenstil</span>
+                            <span class="settings-hint">Stil des Kartenrahmens</span>
+                        </div>
+                        <select id="s-borderStyle" class="settings-select">
+                            <option value="solid">Durchgehend</option>
+                            <option value="dashed">Gestrichelt</option>
+                            <option value="double">Doppelt</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fortschritt-Box-Form</span>
+                            <span class="settings-hint">Form der Fortschrittsboxen</span>
+                        </div>
+                        <select id="s-progressBoxShape" class="settings-select">
+                            <option value="rounded">Abgerundet</option>
+                            <option value="square">Eckig</option>
+                            <option value="pill">Pille</option>
+                        </select>
+                    </div>
+                    <div class="settings-group-title">Spezialeffekte</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Leuchtintensität</span>
+                            <span class="settings-hint">Stärke aller Glow-Effekte</span>
+                        </div>
+                        <select id="s-accentGlow" class="settings-select">
+                            <option value="normal">Normal</option>
+                            <option value="dim">Schwach</option>
+                            <option value="intense">Intensiv</option>
+                            <option value="off">Aus</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Neon-Modus</span>
+                            <span class="settings-hint">Extra Neon-Glow auf Text &amp; Elementen</span>
+                        </div>
+                        <div class="toggle" id="s-neonGlow"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>CRT-Scanlines</span>
+                            <span class="settings-hint">Retro-Bildröhren-Overlay</span>
+                        </div>
+                        <div class="toggle" id="s-scanlines"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>3D-Tilt beim Hover</span>
+                            <span class="settings-hint">Karten kippen beim Hover leicht in 3D</span>
+                        </div>
+                        <div class="toggle" id="s-cardTiltOnHover"><div class="toggle-thumb"></div></div>
+                    </div>
                 </div>
 
                 <!-- ── Cards ── -->
@@ -1461,6 +1634,53 @@ body {
                         </div>
                         <div class="toggle" id="s-urgentRedTint"><div class="toggle-thumb"></div></div>
                     </div>
+                    <div class="settings-group-title">Fortschritts-Symbol</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Symbol in gefüllten Boxen</span>
+                            <span class="settings-hint">Zeichen in ausgefüllten Fortschrittsboxen</span>
+                        </div>
+                        <select id="s-filledBoxSymbol" class="settings-select">
+                            <option value="✓">✓  Haken</option>
+                            <option value="✦">✦  Stern</option>
+                            <option value="★">★  Stern (fest)</option>
+                            <option value="▓">▓  Block</option>
+                            <option value="⚡">⚡ Blitz</option>
+                            <option value="●">●  Punkt</option>
+                        </select>
+                    </div>
+                    <div class="settings-group-title">Wichtig-Animation</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Pulsgeschwindigkeit (★ Wichtig)</span>
+                            <span class="settings-hint">Tempo des gestrichelten Rahmens</span>
+                        </div>
+                        <select id="s-importantPulseSpeed" class="settings-select">
+                            <option value="slow">Langsam (3.5s)</option>
+                            <option value="medium">Mittel (2s)</option>
+                            <option value="fast">Schnell (0.9s)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Überfällige Karten blinken</span>
+                            <span class="settings-hint">Roter Puls auf überfälligen Karten</span>
+                        </div>
+                        <div class="toggle" id="s-urgentBlink"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Eingangsanimation</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Karten-Erscheinungseffekt</span>
+                            <span class="settings-hint">Wie Karten beim Laden erscheinen</span>
+                        </div>
+                        <select id="s-cardEntryAnim" class="settings-select">
+                            <option value="pop">Pop</option>
+                            <option value="fade">Einblenden</option>
+                            <option value="slide">Einschleichen</option>
+                            <option value="none">Kein Effekt</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- ── Behavior ── -->
@@ -1538,6 +1758,32 @@ body {
                         </div>
                         <div class="toggle" id="s-crossDragDefault"><div class="toggle-thumb"></div></div>
                     </div>
+                    <div class="settings-group-title">Sicherheit</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Lösch-Verzögerung (Undo)</span>
+                            <span class="settings-hint">3s-Countdown mit Rückgängig-Option</span>
+                        </div>
+                        <div class="toggle" id="s-deletionDelay"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-group-title">Feedback</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Vibrations-Feedback</span>
+                            <span class="settings-hint">Haptisches Feedback beim Drag-Start</span>
+                        </div>
+                        <div class="toggle on" id="s-vibrationFeedback"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Fälligkeits-Warnung</span>
+                            <span class="settings-hint">Tage im Voraus gelb hervorheben</span>
+                        </div>
+                        <div class="range-group">
+                            <input type="range" id="s-dueDateWarningDays" class="settings-range" min="1" max="14" step="1" value="3">
+                            <span class="range-val" id="s-dueDateWarningDays-val">3d</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ── Labs ── -->
@@ -1578,6 +1824,28 @@ body {
                         </div>
                         <div class="toggle" id="s-sectionCountBadge"><div class="toggle-thumb"></div></div>
                     </div>
+                    <div class="settings-group-title" style="color:#888;margin-top:20px">🤓 Nerdy Mode</div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Hex-Fortschritt</span>
+                            <span class="settings-hint">0x00 / 0x55 / 0xAA / 0xFF statt Prozent</span>
+                        </div>
+                        <div class="toggle" id="s-hexProgress"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Matrix-Regen</span>
+                            <span class="settings-hint">Fallende Zeichen im Hintergrund</span>
+                        </div>
+                        <div class="toggle" id="s-matrixBg"><div class="toggle-thumb"></div></div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-label">
+                            <span>Letztes Update anzeigen</span>
+                            <span class="settings-hint">Timestamp der letzten Bearbeitung auf Karten</span>
+                        </div>
+                        <div class="toggle" id="s-showLastUpdated"><div class="toggle-thumb"></div></div>
+                    </div>
                 </div>
 
             </div>
@@ -1613,6 +1881,9 @@ body {
 
     <!-- canvas-confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <!-- Matrix rain canvas -->
+    <canvas id="matrix-canvas"></canvas>
 
     <!-- Firebase v9 SDK -->
     <script type="module" src="app.js"></script>

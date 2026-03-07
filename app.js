@@ -90,6 +90,25 @@ const DEFAULT_SETTINGS = {
     reverseSortOrder: false,
     glassmorphism: false,
     sectionCountBadge: false,
+    hexProgress: false,
+    matrixBg: false,
+    showLastUpdated: false,
+    // Appearance extras
+    borderStyle: 'solid',
+    progressBoxShape: 'rounded',
+    neonGlow: false,
+    scanlines: false,
+    accentGlow: 'normal',
+    cardTiltOnHover: false,
+    // Cards extras
+    filledBoxSymbol: '✓',
+    urgentBlink: false,
+    importantPulseSpeed: 'medium',
+    cardEntryAnim: 'pop',
+    // Behavior extras
+    deletionDelay: false,
+    vibrationFeedback: true,
+    dueDateWarningDays: 3,
 };
 let currentSettings = { ...DEFAULT_SETTINGS };
 
@@ -273,12 +292,41 @@ function applySettings(s) {
     else if (s.animationSpeed === 'fast') body.classList.add('pref-anim-fast');
 
     crossCategoryDragLocked = !s.crossDragDefault;
-    const lockIcon = lockBtn.querySelector('.material-symbols-outlined');
-    if (lockIcon) lockIcon.textContent = crossCategoryDragLocked ? 'lock' : 'lock_open';
-    lockBtn.classList.toggle('unlocked', !crossCategoryDragLocked);
+    if (lockBtn) {
+        const lockIcon = lockBtn.querySelector('.material-symbols-outlined');
+        if (lockIcon) lockIcon.textContent = crossCategoryDragLocked ? 'lock' : 'lock_open';
+        lockBtn.classList.toggle('unlocked', !crossCategoryDragLocked);
+    }
 
     const repeatSelect = document.getElementById('task-repeat');
     if (repeatSelect && repeatSelect.value === 'none') repeatSelect.value = s.defaultRepeatType;
+
+    // ── New appearance extras ──
+    root.style.setProperty('--card-border-style', s.borderStyle || 'solid');
+    const shapeMap = { rounded: '12px', square: '0px', pill: '50px' };
+    root.style.setProperty('--progress-box-radius', shapeMap[s.progressBoxShape] || '12px');
+    root.style.setProperty('--filled-symbol', '"' + (s.filledBoxSymbol || '✓') + '"');
+    const pulseSpeedMap = { slow: '3.5s', medium: '2s', fast: '0.9s' };
+    root.style.setProperty('--pulse-duration', pulseSpeedMap[s.importantPulseSpeed] || '2s');
+
+    body.classList.toggle('pref-neon', !!s.neonGlow);
+    body.classList.toggle('pref-scanlines', !!s.scanlines);
+    body.classList.toggle('pref-urgent-blink', !!s.urgentBlink);
+    body.classList.toggle('pref-tilt', !!s.cardTiltOnHover);
+    body.classList.toggle('pref-matrix', !!s.matrixBg);
+    body.classList.toggle('pref-show-updated', !!s.showLastUpdated);
+
+    body.classList.remove('pref-glow-off', 'pref-glow-dim', 'pref-glow-intense');
+    if (s.accentGlow === 'off') body.classList.add('pref-glow-off');
+    else if (s.accentGlow === 'dim') body.classList.add('pref-glow-dim');
+    else if (s.accentGlow === 'intense') body.classList.add('pref-glow-intense');
+
+    body.classList.remove('pref-entry-pop', 'pref-entry-fade', 'pref-entry-slide');
+    if (s.cardEntryAnim === 'pop') body.classList.add('pref-entry-pop');
+    else if (s.cardEntryAnim === 'fade') body.classList.add('pref-entry-fade');
+    else if (s.cardEntryAnim === 'slide') body.classList.add('pref-entry-slide');
+
+    if (s.matrixBg) startMatrixRain(); else stopMatrixRain();
 }
 
 async function saveSettings() {
@@ -314,7 +362,65 @@ async function loadCustomOrder(uid) {
     } catch (e) { console.error('Error loading order:', e); }
 }
 
-// ── Settings modal ─────────────────────────────────────────────────────────
+// ── Matrix rain ────────────────────────────────────────────────────────────
+let matrixAnimId = null;
+function startMatrixRain() {
+    const canvas = document.getElementById('matrix-canvas');
+    if (!canvas || matrixAnimId) return;
+    const ctx = canvas.getContext('2d');
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ#@!?<>{}[]▓░'.split('');
+    const fontSize = 14;
+    const drops = Array(Math.ceil(window.innerWidth / fontSize)).fill(1);
+    const draw = () => {
+        if (!document.body.classList.contains('pref-matrix')) { matrixAnimId = null; return; }
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = `rgba(${hexToRgb(currentSettings.accentColor)}, 0.65)`;
+        ctx.font = `${fontSize}px monospace`;
+        drops.forEach((y, i) => {
+            ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fontSize, y * fontSize);
+            if (y * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        });
+        matrixAnimId = requestAnimationFrame(draw);
+    };
+    draw();
+}
+function stopMatrixRain() {
+    if (matrixAnimId) { cancelAnimationFrame(matrixAnimId); matrixAnimId = null; }
+    const canvas = document.getElementById('matrix-canvas');
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── Undo-delete toast ──────────────────────────────────────────────────────
+function showUndoToast(taskId) {
+    document.querySelector('.undo-toast')?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'undo-toast';
+    let countdown = 3;
+    let cancelled = false;
+    const textEl = document.createElement('span');
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'undo-btn';
+    undoBtn.textContent = 'Rückgängig';
+    undoBtn.addEventListener('click', () => { cancelled = true; clearInterval(timer); toast.remove(); });
+    toast.appendChild(textEl);
+    toast.appendChild(undoBtn);
+    document.body.appendChild(toast);
+    const update = () => { textEl.textContent = `Wird gelöscht in ${countdown}s… `; };
+    update();
+    const timer = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+            clearInterval(timer);
+            toast.remove();
+            if (!cancelled) deleteDoc(doc(db, `users/${currentUser.uid}/tasks`, taskId)).catch(console.error);
+        } else { update(); }
+    }, 1000);
+}
 function initSettingsModal() {
     const modal = document.getElementById('settings-modal');
     if (!modal) return;
@@ -363,6 +469,12 @@ function initSettingsModal() {
         ['s-dateFormat', 'dateFormat', false],
         ['s-defaultRepeatType', 'defaultRepeatType', false],
         ['s-firstDayOfWeek', 'firstDayOfWeek', false],
+        ['s-borderStyle', 'borderStyle', false],
+        ['s-progressBoxShape', 'progressBoxShape', true],
+        ['s-filledBoxSymbol', 'filledBoxSymbol', true],
+        ['s-importantPulseSpeed', 'importantPulseSpeed', false],
+        ['s-cardEntryAnim', 'cardEntryAnim', false],
+        ['s-accentGlow', 'accentGlow', false],
     ].forEach(([id, key, rerender]) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => onSettingChange(key, el.value, rerender));
@@ -375,6 +487,7 @@ function initSettingsModal() {
         ['s-borderWidth', 'borderWidth', false, 'px'],
         ['s-cardSpacing', 'cardSpacing', false, 'px'],
         ['s-taskTitleSize', 'taskTitleSize', false, 'px'],
+        ['s-dueDateWarningDays', 'dueDateWarningDays', true, 'd'],
     ].forEach(([id, key, rerender, unit]) => {
         const el = document.getElementById(id);
         const valEl = document.getElementById(id + '-val');
@@ -419,6 +532,15 @@ function initSettingsModal() {
         ['s-reverseSortOrder', 'reverseSortOrder', true],
         ['s-glassmorphism', 'glassmorphism', false],
         ['s-sectionCountBadge', 'sectionCountBadge', true],
+        ['s-neonGlow', 'neonGlow', false],
+        ['s-scanlines', 'scanlines', false],
+        ['s-cardTiltOnHover', 'cardTiltOnHover', false],
+        ['s-urgentBlink', 'urgentBlink', false],
+        ['s-deletionDelay', 'deletionDelay', false],
+        ['s-vibrationFeedback', 'vibrationFeedback', false],
+        ['s-hexProgress', 'hexProgress', true],
+        ['s-matrixBg', 'matrixBg', false],
+        ['s-showLastUpdated', 'showLastUpdated', false],
     ].forEach(([id, key, rerender]) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', () => {
@@ -439,6 +561,12 @@ function syncSettingsUI(s) {
     if (g('s-dateFormat')) g('s-dateFormat').value = s.dateFormat;
     if (g('s-defaultRepeatType')) g('s-defaultRepeatType').value = s.defaultRepeatType;
     if (g('s-firstDayOfWeek')) g('s-firstDayOfWeek').value = s.firstDayOfWeek;
+    if (g('s-borderStyle')) g('s-borderStyle').value = s.borderStyle;
+    if (g('s-progressBoxShape')) g('s-progressBoxShape').value = s.progressBoxShape;
+    if (g('s-filledBoxSymbol')) g('s-filledBoxSymbol').value = s.filledBoxSymbol;
+    if (g('s-importantPulseSpeed')) g('s-importantPulseSpeed').value = s.importantPulseSpeed;
+    if (g('s-cardEntryAnim')) g('s-cardEntryAnim').value = s.cardEntryAnim;
+    if (g('s-accentGlow')) g('s-accentGlow').value = s.accentGlow;
 
     const sr = (id, val, unit) => { const r = g(id), v = g(id+'-val'); if(r) r.value=val; if(v) v.textContent=val+unit; };
     sr('s-fontSize', s.fontSize, 'px');
@@ -446,6 +574,7 @@ function syncSettingsUI(s) {
     sr('s-borderWidth', s.borderWidth, 'px');
     sr('s-cardSpacing', s.cardSpacing, 'px');
     sr('s-taskTitleSize', s.taskTitleSize, 'px');
+    sr('s-dueDateWarningDays', s.dueDateWarningDays, 'd');
 
     if (g('s-accentColor')) g('s-accentColor').value = s.accentColor;
 
@@ -459,6 +588,11 @@ function syncSettingsUI(s) {
         ['s-autoSortNew','autoSortNew'],['s-focusMode','focusMode'],
         ['s-compactMode','compactMode'],['s-reverseSortOrder','reverseSortOrder'],
         ['s-glassmorphism','glassmorphism'],['s-sectionCountBadge','sectionCountBadge'],
+        ['s-neonGlow','neonGlow'],['s-scanlines','scanlines'],
+        ['s-cardTiltOnHover','cardTiltOnHover'],['s-urgentBlink','urgentBlink'],
+        ['s-deletionDelay','deletionDelay'],['s-vibrationFeedback','vibrationFeedback'],
+        ['s-hexProgress','hexProgress'],['s-matrixBg','matrixBg'],
+        ['s-showLastUpdated','showLastUpdated'],
     ].forEach(([id, key]) => { const t = g(id); if(t) t.classList.toggle('on', !!s[key]); });
 }
 
@@ -788,7 +922,7 @@ function createTaskCard(task, sectionName) {
         lpStartY = t.clientY;
         lpTimer = setTimeout(() => {
             lpTimer = null;
-            if (navigator.vibrate) navigator.vibrate(30);
+            if (navigator.vibrate && currentSettings.vibrationFeedback) navigator.vibrate(30);
             // Clear any active text selection before entering drag mode
             window.getSelection()?.removeAllRanges();
             document.body.classList.add('dragging-active');
@@ -934,10 +1068,19 @@ function createTaskCard(task, sectionName) {
     // Progress text
     const progressText = document.createElement('div');
     progressText.className = 'progress-text' + (progress === 3 ? ' complete' : '');
+    const HEX_VALS = { 0: '0x00', 1: '0x55', 2: '0xAA', 3: '0xFF' };
     if (progress === 3) {
-        progressText.innerHTML = '<span class="material-symbols-outlined ms-green" style="font-size:20px">celebration</span> Abgeschlossen!';
+        if (currentSettings.hexProgress) {
+            progressText.textContent = '0xFF — Abgeschlossen!';
+            progressText.style.fontFamily = 'monospace';
+        } else {
+            progressText.innerHTML = '<span class="material-symbols-outlined ms-green" style="font-size:20px">celebration</span> Abgeschlossen!';
+        }
     } else {
-        progressText.textContent = progressPercent + '% erledigt';
+        progressText.textContent = currentSettings.hexProgress
+            ? HEX_VALS[progress] + ' erledigt'
+            : progressPercent + '% erledigt';
+        if (currentSettings.hexProgress) progressText.style.fontFamily = 'monospace';
     }
     card.appendChild(progressText);
 
@@ -1002,6 +1145,12 @@ function createTaskCard(task, sectionName) {
     const createdStr = task.createdAt ? task.createdAt.split('T')[0] : null;
     createdEl.textContent = 'Erstellt: ' + (createdStr ? formatDate(createdStr) : '–');
     card.appendChild(createdEl);
+
+    const updatedEl = document.createElement('div');
+    updatedEl.className = 'task-updated-date';
+    const updatedStr = task.updatedAt ? task.updatedAt.split('T')[0] : null;
+    updatedEl.textContent = 'Bearbeitet: ' + (updatedStr ? formatDate(updatedStr) : '–');
+    card.appendChild(updatedEl);
 
     return card;
 }
@@ -1130,6 +1279,11 @@ window.deleteTask = async function(taskId, skipConfirm = false) {
 
     if (!skipConfirm && currentSettings.confirmDelete && !confirm('Möchtest du diese Aufgabe wirklich löschen?')) return;
 
+    if (!skipConfirm && currentSettings.deletionDelay) {
+        showUndoToast(taskId);
+        return;
+    }
+
     try {
         const taskRef = doc(db, `users/${currentUser.uid}/tasks`, taskId);
         await deleteDoc(taskRef);
@@ -1151,11 +1305,12 @@ function getDueDateInfo(dueDate) {
     const due = new Date(y, m - 1, d);
 
     const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+    const warnDays = currentSettings.dueDateWarningDays || 3;
 
     if (diffDays < 0)   return { badge: Math.abs(diffDays) + 'd überfällig', class: 'overdue' };
     if (diffDays === 0) return { badge: 'Heute fällig',                       class: 'today'   };
-    if (diffDays === 1) return { badge: 'Morgen fällig',                      class: ''        };
-    if (diffDays <= 7)  return { badge: 'In ' + diffDays + ' Tagen',         class: ''        };
+    if (diffDays === 1) return { badge: 'Morgen fällig',                      class: warnDays >= 1 ? 'warning' : '' };
+    if (diffDays <= 7)  return { badge: 'In ' + diffDays + ' Tagen',         class: diffDays <= warnDays ? 'warning' : '' };
     return                     { badge: 'Fällig: ' + formatDate(dueDate),    class: ''        };
 }
 
