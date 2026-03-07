@@ -40,6 +40,12 @@ let currentTasksCache = [];
 // Drag state
 let dragState = { element: null, section: null, placeholder: null };
 
+// ── Long-press / touch drag constants & state ─────────────────────────────
+const LONG_PRESS_MS = 750;
+const SCROLL_ZONE_PX = 80;
+const SCROLL_MAX_SPEED = 12;
+let compactDrag = { element: null, section: null, placeholder: null };
+
 // ── iOS / iPadOS: block overscroll & zoom ─────────────────────────────────
 // Prevent pinch-zoom gesture events (Safari-specific)
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
@@ -54,7 +60,7 @@ document.addEventListener('touchstart', e => {
 
 document.addEventListener('touchmove', e => {
     // Never block while a card is being dragged
-    if (dragState.element) return;
+    if (dragState.element || compactDrag.element) return;
 
     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
     const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
@@ -420,6 +426,98 @@ function createTaskCard(task, sectionName) {
         }
         dragState = { element: null, section: null, placeholder: null };
     });
+
+    // Touch long-press drag (iOS / iPadOS)
+    let lpTimer = null;
+    let lpStartX = 0, lpStartY = 0;
+
+    card.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        lpStartX = t.clientX;
+        lpStartY = t.clientY;
+        lpTimer = setTimeout(() => {
+            lpTimer = null;
+            if (navigator.vibrate) navigator.vibrate(30);
+            compactDrag.element = card;
+            compactDrag.section = sectionName;
+            card.style.touchAction = 'none';
+            card.classList.add('dragging');
+            const ph = document.createElement('div');
+            ph.className = 'drag-placeholder';
+            ph.style.height = card.offsetHeight + 'px';
+            compactDrag.placeholder = ph;
+            if (card.parentNode) card.parentNode.insertBefore(ph, card);
+        }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+        if (compactDrag.element === card) {
+            e.preventDefault();
+            const t = e.touches[0];
+            const sec = card.closest('.task-section');
+            if (!sec || !compactDrag.placeholder) return;
+            const siblings = [...sec.querySelectorAll('.task-card:not(.dragging)')];
+            if (compactDrag.placeholder.parentNode) compactDrag.placeholder.remove();
+            let before = null;
+            for (const s of siblings) {
+                const r = s.getBoundingClientRect();
+                if (t.clientY < r.top + r.height / 2) { before = s; break; }
+            }
+            before ? sec.insertBefore(compactDrag.placeholder, before) : sec.appendChild(compactDrag.placeholder);
+            // Auto-scroll near viewport edges
+            const y = t.clientY;
+            if (y < SCROLL_ZONE_PX) {
+                window.scrollBy(0, -Math.round(SCROLL_MAX_SPEED * (1 - y / SCROLL_ZONE_PX)));
+            } else if (y > window.innerHeight - SCROLL_ZONE_PX) {
+                window.scrollBy(0, Math.round(SCROLL_MAX_SPEED * ((y - window.innerHeight + SCROLL_ZONE_PX) / SCROLL_ZONE_PX)));
+            }
+            return;
+        }
+        if (lpTimer !== null) {
+            const t = e.touches[0];
+            if (Math.abs(t.clientX - lpStartX) > 8 || Math.abs(t.clientY - lpStartY) > 8) {
+                clearTimeout(lpTimer);
+                lpTimer = null;
+            }
+        }
+    }, { passive: false });
+
+    card.addEventListener('touchend', () => {
+        if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
+        if (compactDrag.element !== card) return;
+        const ph = compactDrag.placeholder;
+        const sec = ph && ph.parentNode ? ph.parentNode : card.closest('.task-section');
+        if (ph && ph.parentNode) { ph.parentNode.insertBefore(card, ph); ph.remove(); }
+        card.classList.remove('dragging');
+        card.style.touchAction = '';
+        // Persist new order
+        if (sec) {
+            const newOrder = [...sec.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
+            if (!customOrder) customOrder = {};
+            customOrder[sectionName] = newOrder;
+            if (!tasksContainer.querySelector('.resort-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'resort-btn';
+                btn.innerHTML = '<span class="material-symbols-outlined">sort</span> Chronologisch sortieren';
+                btn.addEventListener('click', () => { customOrder = null; displayTasks(currentTasksCache); });
+                tasksContainer.insertBefore(btn, tasksContainer.firstChild);
+            }
+        }
+        compactDrag = { element: null, section: null, placeholder: null };
+        card.classList.add('just-dropped');
+        setTimeout(() => card.classList.remove('just-dropped'), 600);
+    });
+
+    card.addEventListener('touchcancel', () => {
+        if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
+        if (compactDrag.element !== card) return;
+        if (compactDrag.placeholder && compactDrag.placeholder.parentNode) compactDrag.placeholder.remove();
+        card.classList.remove('dragging');
+        card.style.touchAction = '';
+        compactDrag = { element: null, section: null, placeholder: null };
+    });
+
+    card.addEventListener('contextmenu', e => e.preventDefault());
 
     // Header
     const header = document.createElement('div');
