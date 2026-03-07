@@ -211,6 +211,8 @@
             padding: 24px;
             margin-bottom: 16px;
             transition: all 0.3s ease;
+            -webkit-touch-callout: none;
+            user-select: none;
         }
         
         .task-card:hover {
@@ -479,7 +481,7 @@
 
         /* ── Drag & Drop ──────────────────────────── */
         .task-card[draggable="true"] {
-            cursor: grab;
+            cursor: default;
         }
 
         .task-card[draggable="true"]:active {
