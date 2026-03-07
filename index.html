@@ -104,6 +104,48 @@
             font-size: 24px;
             font-weight: 700;
             color: #00ff88;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .lock-btn {
+            background: transparent;
+            color: #444444;
+            border: 2px solid #333333;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            touch-action: manipulation;
+        }
+
+        .lock-btn:hover {
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+
+        .lock-btn.unlocked {
+            border-color: #ffaa00;
+            color: #ffaa00;
+        }
+
+        .lock-btn.unlocked:hover {
+            background: rgba(255, 170, 0, 0.1);
         }
         
         #logout-btn {
@@ -212,7 +254,23 @@
             margin-bottom: 16px;
             transition: all 0.3s ease;
             -webkit-touch-callout: none;
+            user-select: text;
+        }
+
+        /* Prevent text selection while a drag is active */
+        body.dragging-active .task-card {
             user-select: none;
+        }
+
+        /* Compact view during touch drag: only title visible */
+        .task-card.drag-compact .progress-text,
+        .task-card.drag-compact .progress-container,
+        .task-card.drag-compact .task-footer {
+            display: none;
+        }
+
+        .task-card.drag-compact .task-header {
+            margin-bottom: 0;
         }
         
         .task-card:hover {
@@ -709,7 +767,12 @@
                 <div class="welcome">
                     Hallo, <span id="user-name">User</span>! <span class="material-symbols-outlined ms-green" style="font-size:22px;vertical-align:-3px;">waving_hand</span>
                 </div>
-                <button id="logout-btn">Logout</button>
+                <div class="header-actions">
+                    <button id="lock-btn" class="lock-btn" title="Drag-Kategorien sperren">
+                        <span class="material-symbols-outlined" style="font-size:20px;">lock</span>
+                    </button>
+                    <button id="logout-btn">Logout</button>
+                </div>
             </div>
 
             <!-- Task Form -->
