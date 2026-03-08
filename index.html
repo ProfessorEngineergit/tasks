@@ -274,18 +274,7 @@
             user-select: none;
         }
 
-        /* Compact view during touch drag: only title visible */
-        .task-card.drag-compact .progress-text,
-        .task-card.drag-compact .progress-container,
-        .task-card.drag-compact .task-footer {
-            display: none;
-        }
-
-        .task-card.drag-compact .task-header {
-            margin-bottom: 0;
-        }
-
-        /* Also compact all non-dragging cards while any drag is active */
+        /* Compact all non-dragging cards while any drag is active (makes drop positions easier to see) */
         body.dragging-active .task-card:not(.dragging) .progress-text,
         body.dragging-active .task-card:not(.dragging) .progress-container,
         body.dragging-active .task-card:not(.dragging) .task-footer {
@@ -569,11 +558,24 @@
             cursor: grabbing;
         }
 
+        /* Original card is invisible while a ghost clone follows the cursor */
         .task-card.dragging {
-            opacity: 0.35;
-            transform: rotate(2deg) scale(0.97);
-            cursor: grabbing;
+            opacity: 0;
             pointer-events: none;
+        }
+
+        /* Floating ghost clone that follows the cursor / finger */
+        .drag-ghost {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            transform: rotate(1.5deg) scale(1.04);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 40px rgba(0,255,136,0.35);
+            opacity: 0.95;
+            transition: none;
+            margin: 0 !important;
         }
 
         .drag-placeholder {
@@ -590,13 +592,15 @@
         }
 
         @keyframes just-dropped-kf {
-            0%   { transform: scale(1.03); box-shadow: 0 0 40px rgba(0,255,136,0.55); }
-            60%  { transform: scale(0.99); }
-            100% { transform: scale(1);    box-shadow: none; }
+            0%   { transform: scale(1.06) rotate(-1.2deg); box-shadow: 0 0 55px rgba(0,255,136,0.7); }
+            35%  { transform: scale(0.97) rotate(0.4deg); }
+            60%  { transform: scale(1.02) rotate(0deg);   box-shadow: 0 0 25px rgba(0,255,136,0.3); }
+            80%  { transform: scale(0.99); }
+            100% { transform: scale(1);   box-shadow: none; }
         }
 
         .task-card.just-dropped {
-            animation: just-dropped-kf 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: just-dropped-kf 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         /* ── Re-sort button ──────────────────────── */
@@ -803,6 +807,7 @@ body {
 .resort-btn { color: var(--accent); border-color: var(--accent); }
 .resort-btn:hover { background: rgba(var(--accent-rgb), 0.12); }
 .drag-placeholder { background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.08), transparent); border-color: rgba(var(--accent-rgb), 0.45); }
+.drag-ghost { box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 40px rgba(var(--accent-rgb), 0.4); }
 .lock-btn:hover { border-color: var(--accent); color: var(--accent); }
 .progress-text.complete { color: var(--accent); }
 

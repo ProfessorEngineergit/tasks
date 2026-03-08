@@ -39,7 +39,7 @@ let customOrder = null;
 // Cache of latest tasks array for re-sorting
 let currentTasksCache = [];
 // Drag state
-let dragState = { element: null, section: null, placeholder: null };
+let dragState = { element: null, section: null, placeholder: null, ghost: null, offsetX: 0, offsetY: 0 };
 
 // ── Cross-category drag lock ───────────────────────────────────────────────
 // true  = tasks can only be reordered within their own category (default)
@@ -50,7 +50,15 @@ let crossCategoryDragLocked = true;
 const LONG_PRESS_MS = 750;
 const SCROLL_ZONE_PX = 80;
 const SCROLL_MAX_SPEED = 12;
-let compactDrag = { element: null, section: null, placeholder: null };
+let compactDrag = { element: null, section: null, placeholder: null, ghost: null, offsetX: 0, offsetY: 0 };
+
+// ── Global dragover listener: moves the floating ghost clone ──────────────
+document.addEventListener('dragover', e => {
+    if (!dragState.ghost) return;
+    if (!e.clientX && !e.clientY) return;
+    dragState.ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
+    dragState.ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
+});
 
 // ── Settings ──────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
@@ -358,7 +366,22 @@ async function loadCustomOrder(uid) {
     try {
         const ref = doc(db, `users/${uid}/settings/order`);
         const snap = await getDoc(ref);
-        if (snap.exists() && snap.data().order) customOrder = snap.data().order;
+        if (snap.exists() && snap.data().order) {
+            const saved = snap.data().order;
+            if (Array.isArray(saved)) {
+                // New format: flat global array
+                customOrder = saved;
+            } else if (saved && typeof saved === 'object') {
+                // Old per-section format – migrate to flat global array
+                const merged = [
+                    ...(saved.urgent  || []),
+                    ...(saved.near    || []),
+                    ...(saved.far     || []),
+                    ...(saved.nodate  || []),
+                ];
+                customOrder = merged.length > 0 ? merged : null;
+            }
+        }
     } catch (e) { console.error('Error loading order:', e); }
 }
 
@@ -734,16 +757,15 @@ function displayTasks(tasks) {
     });
 
     // ── Apply custom order within each bucket ──
+    // customOrder is a flat global array of all task-ids in the user's preferred order.
+    // Cards not found in it (newly added) fall to the end of their section.
     if (customOrder) {
         ['urgent', 'near', 'far', 'nodate'].forEach(sec => {
-            const order = customOrder[sec];
-            if (order && order.length) {
-                sections[sec].sort((a, b) => {
-                    const ai = order.indexOf(a.id);
-                    const bi = order.indexOf(b.id);
-                    return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
-                });
-            }
+            sections[sec].sort((a, b) => {
+                const ai = customOrder.indexOf(a.id);
+                const bi = customOrder.indexOf(b.id);
+                return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+            });
         });
     }
 
@@ -841,19 +863,19 @@ function createSectionEl(sectionName, tasks) {
             dragState.placeholder.remove();
         }
 
-        // Persist new order for the target section
-        const newOrder = [...section.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
-        if (!customOrder) customOrder = {};
-        customOrder[sectionName] = newOrder;
-
-        // If cross-section drop, also persist the updated source section order
-        if (dragState.section !== sectionName) {
-            const srcSection = tasksContainer.querySelector(`.task-section[data-section="${dragState.section}"]`);
-            if (srcSection) {
-                customOrder[dragState.section] = [...srcSection.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
-            }
+        // Fade the floating ghost out
+        if (dragState.ghost) {
+            const g = dragState.ghost;
+            dragState.ghost = null;
+            g.style.transition = 'transform 0.18s ease, opacity 0.18s ease';
+            g.style.transform = 'scale(0.88)';
+            g.style.opacity = '0';
+            setTimeout(() => g.remove(), 220);
         }
 
+        // Persist new global flat order
+        const allCards = [...tasksContainer.querySelectorAll('.task-card')];
+        customOrder = allCards.map(el => el.dataset.taskId);
         saveCustomOrder();
 
         // Ensure re-sort button is visible
@@ -865,10 +887,11 @@ function createSectionEl(sectionName, tasks) {
             tasksContainer.insertBefore(btn, tasksContainer.firstChild);
         }
 
-        // Satisfying drop animation
+        // Bounce landing animation
         const dropped = dragState.element;
+        dropped.classList.remove('dragging');
         dropped.classList.add('just-dropped');
-        setTimeout(() => dropped.classList.remove('just-dropped'), 600);
+        setTimeout(() => dropped.classList.remove('just-dropped'), 700);
     });
 
     tasks.forEach(task => section.appendChild(createTaskCard(task, sectionName)));
@@ -892,24 +915,44 @@ function createTaskCard(task, sectionName) {
     card.addEventListener('dragstart', e => {
         dragState.element = card;
         dragState.section = sectionName;
-        card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', task.id);
         document.body.classList.add('dragging-active');
 
+        const rect = card.getBoundingClientRect();
+        dragState.offsetX = e.clientX - rect.left;
+        dragState.offsetY = e.clientY - rect.top;
+
+        // Create a floating full-size ghost clone that follows the cursor
+        const ghost = card.cloneNode(true);
+        ghost.classList.add('drag-ghost');
+        ghost.style.width  = rect.width  + 'px';
+        ghost.style.left   = rect.left   + 'px';
+        ghost.style.top    = rect.top    + 'px';
+        document.body.appendChild(ghost);
+        dragState.ghost = ghost;
+
+        // Suppress the browser's built-in semi-transparent drag image
+        const blankCanvas = document.createElement('canvas');
+        blankCanvas.width = 1; blankCanvas.height = 1;
+        e.dataTransfer.setDragImage(blankCanvas, 0, 0);
+
+        card.classList.add('dragging');
+
         const ph = document.createElement('div');
         ph.className = 'drag-placeholder';
-        ph.style.height = card.offsetHeight + 'px';
+        ph.style.height = rect.height + 'px';
         dragState.placeholder = ph;
     });
 
     card.addEventListener('dragend', () => {
         card.classList.remove('dragging');
+        if (dragState.ghost) { dragState.ghost.remove(); dragState.ghost = null; }
         if (dragState.placeholder && dragState.placeholder.parentNode) {
             dragState.placeholder.remove();
         }
         document.body.classList.remove('dragging-active');
-        dragState = { element: null, section: null, placeholder: null };
+        dragState = { element: null, section: null, placeholder: null, ghost: null, offsetX: 0, offsetY: 0 };
     });
 
     // Touch long-press drag (iOS / iPadOS)
@@ -929,14 +972,26 @@ function createTaskCard(task, sectionName) {
             compactDrag.element = card;
             compactDrag.section = sectionName;
             card.style.touchAction = 'none';
-            // Collapse the card to title-only so it's compact while dragging
-            card.classList.add('drag-compact');
+
+            const rect = card.getBoundingClientRect();
+            compactDrag.offsetX = lpStartX - rect.left;
+            compactDrag.offsetY = lpStartY - rect.top;
+
+            // Create a floating full-size ghost clone that follows the finger
+            const ghost = card.cloneNode(true);
+            ghost.classList.add('drag-ghost');
+            ghost.style.width = rect.width + 'px';
+            ghost.style.left  = rect.left  + 'px';
+            ghost.style.top   = rect.top   + 'px';
+            document.body.appendChild(ghost);
+            compactDrag.ghost = ghost;
+
+            // Hide the original card in-place; placeholder will track drop target
             card.classList.add('dragging');
             const ph = document.createElement('div');
             ph.className = 'drag-placeholder';
-            ph.style.height = card.offsetHeight + 'px';
+            ph.style.height = rect.height + 'px';
             compactDrag.placeholder = ph;
-            if (card.parentNode) card.parentNode.insertBefore(ph, card);
         }, LONG_PRESS_MS);
     }, { passive: true });
 
@@ -944,6 +999,12 @@ function createTaskCard(task, sectionName) {
         if (compactDrag.element === card) {
             e.preventDefault();
             const t = e.touches[0];
+
+            // Move the floating ghost clone
+            if (compactDrag.ghost) {
+                compactDrag.ghost.style.left = (t.clientX - compactDrag.offsetX) + 'px';
+                compactDrag.ghost.style.top  = (t.clientY - compactDrag.offsetY) + 'px';
+            }
 
             // Determine the target section: locked = original section only,
             // unlocked = section currently under the touch point
@@ -988,26 +1049,36 @@ function createTaskCard(task, sectionName) {
     card.addEventListener('touchend', () => {
         if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
         if (compactDrag.element !== card) return;
-        const ph = compactDrag.placeholder;
-        const sec = ph && ph.parentNode ? ph.parentNode : card.closest('.task-section');
+        const ph    = compactDrag.placeholder;
+        const ghost = compactDrag.ghost;
+        const moved = !!(ph && ph.parentNode);
+
+        // Animate ghost: snap to drop target then fade, or just fade if no move
+        if (ghost) {
+            if (moved) {
+                const phRect = ph.getBoundingClientRect();
+                ghost.style.transition = 'left 0.32s cubic-bezier(0.34,1.56,0.64,1), top 0.32s cubic-bezier(0.34,1.56,0.64,1), transform 0.25s ease, opacity 0.2s ease 0.22s';
+                ghost.style.left      = phRect.left + 'px';
+                ghost.style.top       = phRect.top  + 'px';
+                ghost.style.transform = 'rotate(0deg) scale(1)';
+                ghost.style.opacity   = '0';
+            } else {
+                ghost.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+                ghost.style.transform  = 'scale(0.92)';
+                ghost.style.opacity    = '0';
+            }
+            setTimeout(() => ghost.remove(), 380);
+        }
+
         if (ph && ph.parentNode) { ph.parentNode.insertBefore(card, ph); ph.remove(); }
-        card.classList.remove('drag-compact');
         card.classList.remove('dragging');
         card.style.touchAction = '';
         document.body.classList.remove('dragging-active');
-        // Persist new order
-        if (sec) {
-            const targetSectionName = sec.dataset.section;
-            const newOrder = [...sec.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
-            if (!customOrder) customOrder = {};
-            customOrder[targetSectionName] = newOrder;
-            // If cross-section drop, also persist the updated source section order
-            if (targetSectionName !== sectionName) {
-                const srcSection = tasksContainer.querySelector(`.task-section[data-section="${sectionName}"]`);
-                if (srcSection) {
-                    customOrder[sectionName] = [...srcSection.querySelectorAll('.task-card')].map(el => el.dataset.taskId);
-                }
-            }
+
+        // Persist new global flat order
+        if (moved) {
+            const allCards = [...tasksContainer.querySelectorAll('.task-card')];
+            customOrder = allCards.map(el => el.dataset.taskId);
             saveCustomOrder();
 
             if (!tasksContainer.querySelector('.resort-btn')) {
@@ -1018,20 +1089,20 @@ function createTaskCard(task, sectionName) {
                 tasksContainer.insertBefore(btn, tasksContainer.firstChild);
             }
         }
-        compactDrag = { element: null, section: null, placeholder: null };
+        compactDrag = { element: null, section: null, placeholder: null, ghost: null, offsetX: 0, offsetY: 0 };
         card.classList.add('just-dropped');
-        setTimeout(() => card.classList.remove('just-dropped'), 600);
+        setTimeout(() => card.classList.remove('just-dropped'), 700);
     });
 
     card.addEventListener('touchcancel', () => {
         if (lpTimer !== null) { clearTimeout(lpTimer); lpTimer = null; }
         if (compactDrag.element !== card) return;
+        if (compactDrag.ghost) { compactDrag.ghost.remove(); }
         if (compactDrag.placeholder && compactDrag.placeholder.parentNode) compactDrag.placeholder.remove();
-        card.classList.remove('drag-compact');
         card.classList.remove('dragging');
         card.style.touchAction = '';
         document.body.classList.remove('dragging-active');
-        compactDrag = { element: null, section: null, placeholder: null };
+        compactDrag = { element: null, section: null, placeholder: null, ghost: null, offsetX: 0, offsetY: 0 };
     });
 
     card.addEventListener('contextmenu', e => e.preventDefault());
