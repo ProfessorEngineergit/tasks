@@ -210,6 +210,6 @@ Dieses Projekt ist Open Source und kann frei verwendet werden.
 - [ ] Export als PDF/JSON
 - [ ] Benachrichtigungen für Fälligkeitsdaten
 
-## Development and AI assistance
+## KI-Beteiligung
 
-The default-branch history includes contributions explicitly attributed to GitHub Copilot ([example](https://github.com/ProfessorEngineergit/tasks/commit/762e538c8bb132c965744b855c65326b0d9861a2)). This documents AI involvement in those contributions; it does not establish the origin of every line or independent validation. Existing author, co-author and session records are retained.
+Einzelne Code-Beiträge sind ausdrücklich KI-Tools zugeschrieben: [GitHub Copilot](https://github.com/ProfessorEngineergit/tasks/commit/64e3fc66a4e10210111a044df611a8273779e519). Das gilt für diese Beiträge, nicht pauschal für alle Dateien.
