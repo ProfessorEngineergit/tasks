@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>OpenDone</title>
+  <meta name="description" content="A small, fast task list with three progress boxes per task. Use it in the browser or run it on your own server with one command. MIT licensed.">
+  <meta name="theme-color" content="#0A0D0B">
+  <meta property="og:title" content="OpenDone">
+  <meta property="og:description" content="Open source to-do list you can host yourself, lighter than Google Tasks and with more to adjust">
+  <meta property="og:image" content="img/app-desktop-dark.png">
+  <link rel="icon" href="app/icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="app/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="app/fonts/fonts.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav wrap">
+    <a class="brand" href="./" aria-label="OpenDone home">
+      <img src="app/icons/mark.svg" alt="" width="36" height="26">
+      <span class="wordmark">opendone</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#self-host">Self-host</a>
+      <a href="https://github.com/ProfessorEngineergit/tasks">GitHub</a>
+      <a class="btn btn-small btn-primary" href="app/">Open app</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <h1>Open source to-do list you can host yourself</h1>
+        <p class="lead">A small task list you can run anywhere. Use it right here in the browser, or put it on your own server with one command and sync every device.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="app/">Try it in the browser</a>
+          <a class="btn btn-ghost" href="#self-host">Run it yourself</a>
+        </div>
+        <div class="cmd" id="hero-cmd">
+          <span class="prompt" aria-hidden="true">$</span>
+          <code>docker run -d -p 8080:8080 -v opendone:/data ghcr.io/professorengineergit/opendone</code>
+          <button class="copy" type="button" data-copy="docker run -d -p 8080:8080 -v opendone:/data ghcr.io/professorengineergit/opendone">Copy</button>
+        </div>
+        <p class="fine">MIT licensed · about 20 MB of RAM · no account at a big provider</p>
+      </div>
+      <div class="hero-shot">
+        <img class="shot-desktop" src="img/app-desktop-dark.png" alt="OpenDone on a laptop: tasks grouped into Overdue, Today, This week, each with three progress boxes" width="1100" height="760">
+        <img class="shot-phone" src="img/app-phone-dark.png" alt="OpenDone on a phone in dark mode" width="390" height="844">
+      </div>
+    </section>
+
+    <section class="how wrap" aria-labelledby="how-title">
+      <h2 id="how-title" class="sr-only">How a task works</h2>
+      <ol class="steps">
+        <li><span class="tile t1" aria-hidden="true"></span><div><strong>Open</strong><p>Write it down. Add a date if it has one. "Call mum tomorrow" sets the date for you.</p></div></li>
+        <li><span class="tile t2" aria-hidden="true"></span><div><strong>Doing</strong><p>Tap the first or second box when you get going. Half-done work stays visible as half-done.</p></div></li>
+        <li><span class="tile t3" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><strong>Done</strong><p>The third box finishes it. Repeating tasks come back on their next date by themselves.</p></div></li>
+      </ol>
+    </section>
+
+    <section id="features" class="features wrap" aria-labelledby="features-title">
+      <h2 id="features-title">Everything a task list needs, plus a drawer of extras</h2>
+      <div class="grid">
+        <article><h3>Sorted by when it's due</h3><p>Overdue, Today, This week, Later, No date. You see what matters first without setting anything up.</p></article>
+        <article><h3>Repeats that behave</h3><p>Daily, weekdays, every 2 or 3 days, weekly, every 2 weeks, monthly, yearly. A task due on the 31st stays on the last day of each month.</p></article>
+        <article><h3>Live on every device</h3><p>On your server, a change on your phone shows up on your laptop a moment later. No refresh button.</p></article>
+        <article><h3>Install it like an app</h3><p>Add it to your home screen or dock. It opens instantly, and in browser mode it works fully offline.</p></article>
+        <article><h3>Calm by default</h3><p>Dark, quiet, one accent color. Fonts, colors, density, glow, confetti, CRT scanlines and matrix rain are in the settings, off until you want them.</p></article>
+        <article><h3>Your data stays yours</h3><p>One SQLite file on your machine. Export everything as JSON whenever you like and import it anywhere OpenDone runs.</p></article>
+      </div>
+    </section>
+
+    <section class="compare wrap" aria-labelledby="compare-title">
+      <h2 id="compare-title">OpenDone and Google Tasks</h2>
+      <p class="section-lead">Google Tasks is good at the basics. OpenDone covers the same basics, adds progress and control, and runs where you want. A few things it does not do yet.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col"></th><th scope="col">OpenDone</th><th scope="col">Google Tasks</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Due dates, notes, starring</th><td class="y">Yes</td><td class="y">Yes</td></tr>
+            <tr><th scope="row">Repeating tasks</th><td class="y">Yes</td><td class="y">Yes</td></tr>
+            <tr><th scope="row">Drag to reorder</th><td class="y">Yes</td><td class="y">Yes</td></tr>
+            <tr><th scope="row">Progress in three steps</th><td class="y">Yes</td><td class="n">No</td></tr>
+            <tr><th scope="row">Run it on your own server</th><td class="y">Yes</td><td class="n">No</td></tr>
+            <tr><th scope="row">Use it without any account</th><td class="y">Yes, in the browser</td><td class="n">No</td></tr>
+            <tr><th scope="row">Themes, fonts, accent color</th><td class="y">57 settings</td><td class="n">No</td></tr>
+            <tr><th scope="row">Open source</th><td class="y">MIT</td><td class="n">No</td></tr>
+            <tr><th scope="row">Subtasks</th><td class="n">Not yet</td><td class="y">Yes</td></tr>
+            <tr><th scope="row">Several lists</th><td class="n">Not yet</td><td class="y">Yes</td></tr>
+            <tr><th scope="row">Push reminders</th><td class="n">Not yet</td><td class="y">Yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="self-host" class="selfhost wrap" aria-labelledby="selfhost-title">
+      <h2 id="selfhost-title">Run it yourself</h2>
+      <p class="section-lead">Any machine with Docker or Node.js 22.5+ works: a Raspberry Pi, a NAS, a small VPS. Open the address, create the first account, and that account is the admin.</p>
+      <div class="install">
+        <article>
+          <h3>Docker</h3>
+          <pre><code>docker run -d --name opendone \
+  -p 8080:8080 -v opendone:/data \
+  --restart unless-stopped \
+  ghcr.io/professorengineergit/opendone</code></pre>
+        </article>
+        <article>
+          <h3>Docker Compose</h3>
+          <pre><code>curl -O https://raw.githubusercontent.com/ProfessorEngineergit/tasks/main/compose.yaml
+docker compose up -d</code></pre>
+        </article>
+        <article>
+          <h3>Node.js, no Docker</h3>
+          <pre><code>git clone https://github.com/ProfessorEngineergit/tasks opendone
+cd opendone
+node server/server.js</code></pre>
+          <p class="note">No <code>npm install</code>. The server has no dependencies.</p>
+        </article>
+      </div>
+      <p class="section-lead small">Accounts, reverse proxy, backups and Firebase are covered in the <a href="https://github.com/ProfessorEngineergit/tasks#self-hosting">README</a>.</p>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <div class="brand"><img src="app/icons/mark.svg" alt="" width="28" height="20"><span class="wordmark">opendone</span></div>
+    <p>MIT License · <a href="https://github.com/ProfessorEngineergit/tasks">Source on GitHub</a> · <a href="app/">Open the app</a></p>
+  </footer>
+
+  <script src="site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# docker compose up -d
+services:
+  opendone:
+    image: ghcr.io/professorengineergit/opendone:latest
+    # build: .            # use this instead of "image" to build from source
+    container_name: opendone
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - opendone-data:/data
+    environment:
+      # first  – only the first account can be created in the browser (default)
+      # open   – anyone who can reach the server can create an account
+      # closed – create accounts on the command line only
+      OPENDONE_SIGNUP: first
+      # Set to true when running behind a reverse proxy (Caddy, Traefik, nginx …)
+      OPENDONE_TRUST_PROXY: "false"
+
+volumes:
+  opendone-data:

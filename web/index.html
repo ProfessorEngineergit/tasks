@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>OpenDone</title>
+  <meta name="description" content="OpenDone: a small, fast task list with three progress boxes per task. Runs in the browser or on your own server.">
+  <meta name="theme-color" content="#0A0D0B">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="config.js"></script>
+  <script src="vendor/confetti.browser.js" defer></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body class="booting">
+  <canvas id="matrix" aria-hidden="true"></canvas>
+
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="OpenDone">
+        <img src="icons/mark.svg" alt="" width="40" height="29">
+        <span class="wordmark">opendone</span>
+      </a>
+      <span id="greeting" class="greeting" hidden></span>
+      <span class="topbar-spacer"></span>
+      <span id="task-count" class="count-pill" hidden></span>
+      <button id="settings-btn" class="icon-btn" type="button" data-i18n-label="settings.title" hidden>
+        <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
+    </header>
+
+    <main>
+      <div id="view-loading" class="view-loading" aria-busy="true"></div>
+
+      <section id="view-auth" class="view-auth" hidden></section>
+
+      <section id="view-fatal" class="view-fatal" hidden></section>
+
+      <section id="view-app" hidden>
+        <form id="add-form" class="add" autocomplete="off">
+          <div class="add-row">
+            <span class="add-plus" aria-hidden="true">+</span>
+            <input id="add-title" class="add-input" type="text" maxlength="500" enterkeyhint="done" data-i18n-placeholder="add.placeholder" data-i18n-label="add.placeholder">
+            <button class="add-submit" type="submit" data-i18n-label="add.submit">
+              <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+          <div class="add-extra">
+            <label class="chip-field">
+              <span class="chip-label" data-i18n="add.due"></span>
+              <input id="add-due" type="date">
+            </label>
+            <label class="chip-field">
+              <span class="chip-label" data-i18n="add.repeat"></span>
+              <select id="add-repeat"></select>
+            </label>
+            <button id="add-important" class="chip-toggle" type="button" aria-pressed="false" data-i18n-label="card.important"></button>
+          </div>
+        </form>
+
+        <div id="order-bar" class="order-bar" hidden>
+          <span data-i18n="order.custom"></span>
+          <button id="order-reset" class="link-btn" type="button" data-i18n="order.reset"></button>
+        </div>
+
+        <div id="list" class="list"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span id="mode-label"></span>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/ProfessorEngineergit/tasks" target="_blank" rel="noopener">GitHub</a>
+      <span aria-hidden="true">·</span>
+      <span>MIT</span>
+    </footer>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="settings" class="sheet" aria-labelledby="settings-title"></dialog>
+  <dialog id="edit" class="dialog"></dialog>
+</body>
+</html>
