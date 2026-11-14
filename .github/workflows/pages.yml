@@ -1,0 +1,58 @@
+name: GitHub Pages
+
+# Publishes the landing page at the site root and the app (local storage mode,
+# or Firebase if configured) under /app/.
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# Optional: Settings → Secrets and variables → Actions → Variables →
+#   OPENDONE_FIREBASE_CONFIG = your Firebase web config as JSON, to sync through Firebase.
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        env:
+          FIREBASE_CONFIG: ${{ vars.OPENDONE_FIREBASE_CONFIG }}
+        run: |
+          mkdir -p _site/app
+          cp -r site/. _site/
+          cp -r web/. _site/app/
+          if [ -n "$FIREBASE_CONFIG" ]; then
+            echo "$FIREBASE_CONFIG" | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))' || { echo "OPENDONE_FIREBASE_CONFIG is not valid JSON"; exit 1; }
+            printf "window.OPENDONE_CONFIG = { backend: 'auto', firebase: %s };\n" "$FIREBASE_CONFIG" > _site/app/config.js
+            echo "Firebase sync enabled for the Pages build."
+          fi
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

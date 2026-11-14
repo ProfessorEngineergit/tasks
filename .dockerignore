@@ -1,0 +1,9 @@
+.git
+.github
+data
+brand
+site
+node_modules
+*.md
+compose.yaml
+Dockerfile

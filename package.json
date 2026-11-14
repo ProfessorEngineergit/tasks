@@ -1,0 +1,22 @@
+{
+  "name": "opendone",
+  "version": "2.0.0",
+  "description": "A small, fast task list with three progress boxes per task. Runs in the browser or on your own server.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5"
+  },
+  "bin": {
+    "opendone": "server/server.js"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "icons": "node brand/generate.mjs --png"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProfessorEngineergit/tasks.git"
+  }
+}

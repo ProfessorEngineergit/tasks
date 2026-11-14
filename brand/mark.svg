@@ -1,15 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 326 228">
-  <defs>
-    <linearGradient id="t1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A4230"/><stop offset="1" stop-color="#123020"/></linearGradient>
-    <linearGradient id="t2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#29A472"/><stop offset="1" stop-color="#1B7A53"/></linearGradient>
-    <linearGradient id="t3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5CF2AE"/><stop offset="1" stop-color="#2BD58C"/></linearGradient>
-    <filter id="gl" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="17"/></filter>
-    <mask id="cut"><rect x="226" y="0" width="100" height="100" rx="26" fill="#fff"/><path d="M249.5 52 L270 72.5 L304 31" fill="none" stroke="#000" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
-  
+  <defs><linearGradient id="t1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A4230"/><stop offset="1" stop-color="#123020"/></linearGradient><linearGradient id="t2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#29A472"/><stop offset="1" stop-color="#1B7A53"/></linearGradient><linearGradient id="t3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5CF2AE"/><stop offset="1" stop-color="#2BD58C"/></linearGradient></defs>
   <rect x="0" y="128" width="100" height="100" rx="26" fill="url(#t1)"/>
   <rect x="0.7000000000000001" y="128.7" width="98.6" height="98.6" rx="25.22" fill="none" stroke="#2F6447" stroke-opacity=".8" stroke-width="1.3"/>
   <rect x="113" y="64" width="100" height="100" rx="26" fill="url(#t2)"/>
   <rect x="114" y="65" width="98" height="18" rx="9" fill="#fff" opacity=".07"/>
-  <rect x="226" y="0" width="100" height="100" rx="26" fill="url(#t3)" mask="url(#cut)"/>
-  <rect x="227" y="1" width="98" height="18" rx="9" fill="#fff" opacity=".14" mask="url(#cut)"/>
+  <rect x="226" y="0" width="100" height="100" rx="26" fill="url(#t3)"/>
+  <rect x="227" y="1" width="98" height="18" rx="9" fill="#fff" opacity=".14"/>
+  <path d="M250 52 L270 72 L303 32" fill="none" stroke="#0A0D0B" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
