@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18211C"/><stop offset="1" stop-color="#0A0D0B"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="t1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A4230"/><stop offset="1" stop-color="#123020"/></linearGradient>
+    <linearGradient id="t2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#29A472"/><stop offset="1" stop-color="#1B7A53"/></linearGradient>
+    <linearGradient id="t3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5CF2AE"/><stop offset="1" stop-color="#2BD58C"/></linearGradient>
+    <filter id="gl" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="40.120000000000005"/></filter>
+    <mask id="cut"><rect x="660" y="244" width="236" height="236" rx="60" fill="#fff"/><path d="M715.46 366.72 L763.84 415.1 L844.08 317.15999999999997" fill="none" stroke="#000" stroke-width="35.4" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+  <rect x="3" y="3" width="1018" height="1018" rx="229" fill="none" stroke="url(#rim)" stroke-width="6"/>
+  <rect x="683.6" y="291.2" width="188.8" height="212.4" rx="60" fill="#34E39A" opacity=".42" filter="url(#gl)"/>
+  <rect x="128" y="544" width="236" height="236" rx="60" fill="url(#t1)"/>
+  <rect x="129.652" y="545.652" width="232.696" height="232.696" rx="58.199999999999996" fill="none" stroke="#2F6447" stroke-opacity=".8" stroke-width="3.068"/>
+  <rect x="394" y="394" width="236" height="236" rx="60" fill="url(#t2)"/>
+  <rect x="396.36" y="396.36" width="231.28" height="42.48" rx="21.24" fill="#fff" opacity=".07"/>
+  <rect x="660" y="244" width="236" height="236" rx="60" fill="url(#t3)" mask="url(#cut)"/>
+  <rect x="662.36" y="246.36" width="231.28" height="42.48" rx="21.24" fill="#fff" opacity=".14" mask="url(#cut)"/>
+</svg>
