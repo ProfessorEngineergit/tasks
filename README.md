@@ -4,8 +4,8 @@
 
 <h1 align="center">OpenDone</h1>
 
-<p align="center"><strong>Three boxes. Then done.</strong><br>
-A small, fast task list. Use it in the browser, or run it on your own server with one command.</p>
+<p align="center"><strong>Open source to-do list you can host yourself</strong><br>
+Use it in the browser, or run it on your own server with one command</p>
 
 <p align="center">
   <a href="https://professorengineergit.github.io/tasks/">Website</a> ·
